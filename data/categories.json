@@ -1,0 +1,44 @@
+[
+  {
+    "id": "clothing",
+    "name": "پوشاک",
+    "icon": "👕",
+    "active": true,
+    "createdAt": "2026-09-08T07:12:10.222Z"
+  },
+  {
+    "id": "shoes",
+    "name": "کفش",
+    "icon": "👟",
+    "active": true,
+    "createdAt": "2026-09-08T07:12:10.222Z"
+  },
+  {
+    "id": "bags",
+    "name": "کیف",
+    "icon": "👜",
+    "active": true,
+    "createdAt": "2026-09-08T07:12:10.222Z"
+  },
+  {
+    "id": "beauty",
+    "name": "لوازم آرایشی",
+    "icon": "💄",
+    "active": true,
+    "createdAt": "2026-09-08T07:12:10.222Z"
+  },
+  {
+    "id": "home",
+    "name": "لوازم خانه",
+    "icon": "🏠",
+    "active": true,
+    "createdAt": "2026-09-08T07:12:10.222Z"
+  },
+  {
+    "id": "digital",
+    "name": "دیجیتال",
+    "icon": "📱",
+    "active": true,
+    "createdAt": "2026-09-08T07:12:10.222Z"
+  }
+]
