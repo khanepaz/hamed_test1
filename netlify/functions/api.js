@@ -1,6 +1,8 @@
 exports.handler = async (event) => {
-    console.log("========== BALE UPDATE ==========");
-    console.log(event.body);
+    console.log("========== BALE WEBHOOK ==========");
+    console.log("METHOD:", event.httpMethod);
+    console.log("HEADERS:", event.headers);
+    console.log("BODY:", event.body);
 
     return {
         statusCode: 200,
@@ -9,7 +11,7 @@ exports.handler = async (event) => {
         },
         body: JSON.stringify({
             ok: true,
-            message: "Update received"
+            message: "Webhook received"
         })
     };
 };
