@@ -1,1 +1,20 @@
-{}
+{
+  "1918832223": {
+    "step": "name",
+    "name": "",
+    "images": [],
+    "categoryId": null,
+    "category": "",
+    "description": "",
+    "price": 0,
+    "compareAtPrice": 0,
+    "discountType": "none",
+    "discountValue": 0,
+    "discountLabel": "بدون تخفیف",
+    "attributes": {},
+    "variants": [],
+    "totalStock": 0,
+    "featured": false,
+    "tags": []
+  }
+}
