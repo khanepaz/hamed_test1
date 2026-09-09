@@ -2,7 +2,11 @@
   "1918832223": {
     "step": "photos",
     "name": "من زیبا",
-    "images": [],
+    "images": [
+      {
+        "fileId": "1918832223:-8498899810946244862:0:6208362f55dad6ff"
+      }
+    ],
     "categoryId": null,
     "category": "",
     "description": "",
