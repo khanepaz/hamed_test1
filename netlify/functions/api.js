@@ -1588,7 +1588,7 @@ async function sendMainMenu(
 
     chatId,
 
-    "<b>پنل مدیریت HamedShop</b>\n\n" +
+    "پنل مدیریت HamedShop\n\n" +
     "لطفاً یکی از گزینه‌های زیر را انتخاب کنید:",
 
     mainKeyboard()
