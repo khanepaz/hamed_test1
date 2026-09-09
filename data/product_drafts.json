@@ -1,14 +1,14 @@
 {
   "1918832223": {
-    "step": "category",
+    "step": "description",
     "name": "من زیبا",
     "images": [
       {
         "fileId": "1918832223:-8498899810946244862:0:6208362f55dad6ff"
       }
     ],
-    "categoryId": null,
-    "category": "",
+    "categoryId": "clothing",
+    "category": "👕 پوشاک",
     "description": "",
     "price": 0,
     "compareAtPrice": 0,
