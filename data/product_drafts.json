@@ -1,6 +1,6 @@
 {
   "1918832223": {
-    "step": "attributes",
+    "step": "variantStock",
     "name": "من زیبا",
     "images": [
       {
@@ -15,10 +15,27 @@
     "discountType": "percent",
     "discountValue": 7,
     "discountLabel": "7%",
-    "attributes": {},
-    "variants": [],
+    "attributes": {
+      "رنگ": [
+        "سفید"
+      ]
+    },
+    "variants": [
+      {
+        "id": "V_mtttqplb_qo1l0n",
+        "name": "سفید",
+        "attributes": {
+          "رنگ": "سفید"
+        },
+        "price": 0,
+        "stock": 0,
+        "sku": "",
+        "active": true
+      }
+    ],
     "totalStock": 0,
     "featured": false,
-    "tags": []
+    "tags": [],
+    "variantIndex": 0
   }
 }
