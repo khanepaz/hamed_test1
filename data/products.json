@@ -19,5 +19,31 @@
     "category": "👜 کیف",
     "image": "images/P26090807525753.jpg",
     "createdAt": "2026-09-08T07:52:59.529Z"
+  },
+  {
+    "id": "P26090904564400",
+    "name": "من",
+    "category": "📱 دیجیتال",
+    "categoryId": "digital",
+    "description": "",
+    "image": "images/P26090904564400.jpg",
+    "images": [
+      "images/P26090904564400.jpg"
+    ],
+    "price": 0,
+    "compareAtPrice": 0,
+    "discountPercent": 0,
+    "discountAmount": 0,
+    "finalPrice": 0,
+    "currency": "IRR",
+    "variants": [],
+    "attributes": {},
+    "stock": 0,
+    "totalStock": 0,
+    "active": true,
+    "featured": false,
+    "tags": [],
+    "createdAt": "2026-09-09T04:56:46.037Z",
+    "updatedAt": "2026-09-09T04:56:46.037Z"
   }
 ]
