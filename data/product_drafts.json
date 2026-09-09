@@ -1,6 +1,6 @@
 {
   "1918832223": {
-    "step": "discount",
+    "step": "attributes",
     "name": "من زیبا",
     "images": [
       {
@@ -12,9 +12,9 @@
     "description": "",
     "price": 65000,
     "compareAtPrice": 70000,
-    "discountType": "none",
-    "discountValue": 0,
-    "discountLabel": "بدون تخفیف",
+    "discountType": "percent",
+    "discountValue": 7,
+    "discountLabel": "7%",
     "attributes": {},
     "variants": [],
     "totalStock": 0,
