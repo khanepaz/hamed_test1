@@ -1,6 +1,6 @@
 {
   "1918832223": {
-    "step": "discount",
+    "step": "attributes",
     "name": "زیبا",
     "images": [
       {
@@ -10,7 +10,7 @@
     "categoryId": "beauty",
     "category": "💄 لوازم آرایشی",
     "description": "",
-    "price": 0,
+    "price": 100000,
     "compareAtPrice": 100000,
     "discountType": "none",
     "discountValue": 0,
