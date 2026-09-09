@@ -1,6 +1,6 @@
 {
   "1918832223": {
-    "step": "tags",
+    "step": "preview",
     "name": "من زیبا",
     "images": [
       {
@@ -35,6 +35,8 @@
     ],
     "totalStock": 5,
     "featured": true,
-    "tags": []
+    "tags": [
+      "ویژه، پر فروش"
+    ]
   }
 }
