@@ -23,6 +23,8 @@ const JSON_DEFAULTS = {
 
   "data/categories.json": [],
 
+  "data/badges.json": [],
+
   "data/variants.json": [],
 
   "data/inventory.json": [],
@@ -665,6 +667,11 @@ function normalizeProduct(
     featured:
       product.featured === true,
 
+    badges:
+      safeArray(
+        product.badges
+      ),
+
     tags:
       safeArray(
         product.tags
@@ -1101,6 +1108,419 @@ async function createCategory(
 }
 
 
+async function updateCategory(
+  categoryId,
+  changes
+) {
+
+  const file =
+    await getCategoriesFile();
+
+
+  const categories =
+    file.data;
+
+
+  const index =
+    categories.findIndex(
+      category =>
+        String(category.id) ===
+        String(categoryId)
+    );
+
+
+  if (index === -1) {
+
+    throw new Error(
+      "Category not found"
+    );
+  }
+
+
+  categories[index] = {
+
+    ...categories[index],
+
+    name:
+      changes.name !== undefined
+        ? safeText(changes.name) ||
+          categories[index].name
+        : categories[index].name,
+
+    icon:
+      changes.icon !== undefined
+        ? changes.icon ||
+          categories[index].icon
+        : categories[index].icon,
+
+    active:
+      changes.active !== undefined
+        ? changes.active !== false
+        : categories[index].active,
+
+    updatedAt:
+      nowISO()
+  };
+
+
+  await writeJsonFile(
+
+    "data/categories.json",
+
+    categories,
+
+    `Update category ${categoryId}`,
+
+    file.sha
+  );
+
+
+  return categories[index];
+}
+
+
+async function deleteCategory(
+  categoryId
+) {
+
+  const file =
+    await getCategoriesFile();
+
+
+  const categories =
+    file.data;
+
+
+  const index =
+    categories.findIndex(
+      category =>
+        String(category.id) ===
+        String(categoryId)
+    );
+
+
+  if (index === -1) {
+
+    throw new Error(
+      "Category not found"
+    );
+  }
+
+
+  // بررسی می‌کنیم آیا محصولی به این دسته‌بندی متصل است
+  const productsFile =
+    await getProductsFile();
+
+  const inUse =
+    productsFile.data.some(
+      product =>
+        String(product.categoryId) ===
+        String(categoryId)
+    );
+
+  if (inUse) {
+
+    throw new Error(
+      "این دسته‌بندی به یک یا چند محصول متصل است و قابل حذف نیست. ابتدا محصولات را جابه‌جا یا غیرفعال کنید."
+    );
+  }
+
+
+  const deleted =
+    categories.splice(
+      index,
+      1
+    )[0];
+
+
+  await writeJsonFile(
+
+    "data/categories.json",
+
+    categories,
+
+    `Delete category ${categoryId}`,
+
+    file.sha
+  );
+
+
+  return deleted;
+}
+
+
+// ============================================================
+// BADGES (گزینه‌های ویژه: پرفروش، ویژه، شگفت‌انگیز، جدید و ...)
+// ============================================================
+
+const DEFAULT_BADGES = [
+
+  {
+    id: "badge_bestseller",
+    name: "پرفروش",
+    icon: "🔥",
+    active: true
+  },
+
+  {
+    id: "badge_featured",
+    name: "ویژه",
+    icon: "⭐",
+    active: true
+  },
+
+  {
+    id: "badge_amazing",
+    name: "شگفت‌انگیز",
+    icon: "⚡",
+    active: true
+  },
+
+  {
+    id: "badge_new",
+    name: "جدید",
+    icon: "🆕",
+    active: true
+  }
+];
+
+
+async function getBadgesFile() {
+
+  return readJsonFile(
+    "data/badges.json",
+    DEFAULT_BADGES
+  );
+}
+
+
+async function createBadge(
+  badge
+) {
+
+  const file =
+    await getBadgesFile();
+
+
+  const newBadge = {
+
+    id:
+      badge.id ||
+      generateId("badge"),
+
+    name:
+      safeText(
+        badge.name
+      ) ||
+      "گزینه جدید",
+
+    icon:
+      badge.icon ||
+      "🏷️",
+
+    active:
+      badge.active !== false,
+
+    createdAt:
+      nowISO(),
+
+    updatedAt:
+      nowISO()
+  };
+
+
+  file.data.push(
+    newBadge
+  );
+
+
+  await writeJsonFile(
+
+    "data/badges.json",
+
+    file.data,
+
+    `Add badge ${newBadge.id}`,
+
+    file.sha
+  );
+
+
+  return newBadge;
+}
+
+
+async function updateBadge(
+  badgeId,
+  changes
+) {
+
+  const file =
+    await getBadgesFile();
+
+
+  const badges =
+    file.data;
+
+
+  const index =
+    badges.findIndex(
+      badge =>
+        String(badge.id) ===
+        String(badgeId)
+    );
+
+
+  if (index === -1) {
+
+    throw new Error(
+      "Badge not found"
+    );
+  }
+
+
+  badges[index] = {
+
+    ...badges[index],
+
+    name:
+      changes.name !== undefined
+        ? safeText(changes.name) ||
+          badges[index].name
+        : badges[index].name,
+
+    icon:
+      changes.icon !== undefined
+        ? changes.icon ||
+          badges[index].icon
+        : badges[index].icon,
+
+    active:
+      changes.active !== undefined
+        ? changes.active !== false
+        : badges[index].active,
+
+    updatedAt:
+      nowISO()
+  };
+
+
+  await writeJsonFile(
+
+    "data/badges.json",
+
+    badges,
+
+    `Update badge ${badgeId}`,
+
+    file.sha
+  );
+
+
+  return badges[index];
+}
+
+
+async function deleteBadge(
+  badgeId
+) {
+
+  const file =
+    await getBadgesFile();
+
+
+  const badges =
+    file.data;
+
+
+  const index =
+    badges.findIndex(
+      badge =>
+        String(badge.id) ===
+        String(badgeId)
+    );
+
+
+  if (index === -1) {
+
+    throw new Error(
+      "Badge not found"
+    );
+  }
+
+
+  const deleted =
+    badges.splice(
+      index,
+      1
+    )[0];
+
+
+  await writeJsonFile(
+
+    "data/badges.json",
+
+    badges,
+
+    `Delete badge ${badgeId}`,
+
+    file.sha
+  );
+
+
+  // این گزینه را از همه‌ی محصولاتی که به آن متصل بودند هم حذف می‌کنیم
+  const productsFile =
+    await getProductsFile();
+
+  const products =
+    productsFile.data.map(
+      normalizeProduct
+    );
+
+  let changed =
+    false;
+
+  products.forEach(
+    product => {
+
+      if (
+        Array.isArray(product.badges) &&
+        product.badges.includes(badgeId)
+      ) {
+
+        product.badges =
+          product.badges.filter(
+            id =>
+              id !== badgeId
+          );
+
+        changed =
+          true;
+      }
+    }
+  );
+
+  if (changed) {
+
+    await saveProductsFile(
+
+      products,
+
+      productsFile.sha,
+
+      `Remove badge ${badgeId} from products`
+    );
+
+    await syncIndexes(
+      products
+    );
+  }
+
+
+  return deleted;
+}
+
+
 // ============================================================
 // DRAFT / WIZARD
 // ============================================================
@@ -1511,6 +1931,13 @@ function mainKeyboard() {
       [
         {
           text:
+            "🏷️ گزینه‌های ویژه"
+        }
+      ],
+
+      [
+        {
+          text:
             "🛒 سفارش‌ها"
         },
 
@@ -1562,7 +1989,7 @@ async function sendMessage(
       message,
 
     parse_mode:
-      "HTML"
+      "Markdown"
   };
 
 
@@ -1737,7 +2164,7 @@ async function startProductWizard(
 
     chatId,
 
-    "<b>ثبت محصول جدید</b>\n\n" +
+    "*ثبت محصول جدید*\n\n" +
     "1️⃣ نام محصول را ارسال کنید:"
   );
 }
@@ -1829,18 +2256,7 @@ async function wizardNext(
 
         chatId,
 
-        "4️⃣ قیمت فروش را به تومان وارد کنید.\nمثال: 850000"
-      );
-
-
-    case "compare":
-
-      return sendMessage(
-
-        chatId,
-
-        "5️⃣ قیمت قبل از تخفیف را وارد کنید.\n" +
-        "اگر تخفیف ندارد، 0 وارد کنید."
+        "4️⃣ قیمت اصلی (واقعی) محصول را به تومان وارد کنید.\nمثال: 850000"
       );
 
 
@@ -1850,11 +2266,11 @@ async function wizardNext(
 
         chatId,
 
-        "6️⃣ تخفیف را وارد کنید.\n\n" +
+        "5️⃣ مقدار تخفیف را وارد کنید (قیمت نهایی خودکار محاسبه می‌شود).\n\n" +
         "مثال:\n" +
-        "<code>percent:15</code>\n" +
-        "<code>amount:100000</code>\n" +
-        "<code>none</code>"
+        "`percent:15`\n" +
+        "`amount:100000`\n" +
+        "`none`"
       );
 
 
@@ -1864,10 +2280,10 @@ async function wizardNext(
 
         chatId,
 
-        "7️⃣ ویژگی‌های محصول را وارد کنید.\n\n" +
+        "6️⃣ ویژگی‌های محصول را وارد کنید.\n\n" +
         "مثال:\n" +
-        "<code>رنگ: مشکی, سفید</code>\n" +
-        "<code>سایز: M, L, XL</code>\n\n" +
+        "`رنگ: مشکی, سفید`\n" +
+        "`سایز: M, L, XL`\n\n" +
         "اگر محصول تنوع ندارد بنویسید: ندارد"
       );
 
@@ -1885,9 +2301,9 @@ async function wizardNext(
 
         chatId,
 
-        `8️⃣ موجودی تنوع <b>${escapeHtml(
+        `7️⃣ موجودی تنوع *${escapeMd(
           variant.name
-        )}</b> را وارد کنید.`
+        )}* را وارد کنید.`
       );
     }
 
@@ -1898,7 +2314,7 @@ async function wizardNext(
 
         chatId,
 
-        "8️⃣ موجودی کل محصول را وارد کنید."
+        "7️⃣ موجودی کل محصول را وارد کنید."
       );
 
 
@@ -1908,7 +2324,7 @@ async function wizardNext(
 
         chatId,
 
-        "9️⃣ محصول ویژه باشد؟",
+        "8️⃣ محصول ویژه باشد؟",
 
         inlineKeyboard([
 
@@ -1942,7 +2358,7 @@ async function wizardNext(
 
         "🔟 برچسب‌ها را با کاما جدا کنید.\n\n" +
         "مثال:\n" +
-        "<code>جدید, مردانه, پرفروش</code>\n\n" +
+        "`جدید, مردانه, پرفروش`\n\n" +
         "اگر ندارد بنویسید: ندارد"
       );
 
@@ -1961,24 +2377,19 @@ async function wizardNext(
 // PRODUCT PREVIEW
 // ============================================================
 
-function escapeHtml(
+function escapeMd(
   value
 ) {
 
+  // بله (Bale) از سینتکس Markdown استفاده می‌کند، نه HTML.
+  // کاراکترهای خاص مارک‌داون باید Escape شوند تا در متن آزاد کاربر
+  // (مثل نام محصول) به‌اشتباه به‌عنوان فرمت‌بندی تفسیر نشوند.
   return safeText(
     value
   )
     .replace(
-      /&/g,
-      "&amp;"
-    )
-    .replace(
-      /</g,
-      "&lt;"
-    )
-    .replace(
-      />/g,
-      "&gt;"
+      /[_*`\[\]]/g,
+      "\\$&"
     );
 }
 
@@ -1994,9 +2405,9 @@ async function productPreview(
     )
       .map(
         ([key, values]) =>
-          `${escapeHtml(
+          `${escapeMd(
             key
-          )}: ${escapeHtml(
+          )}: ${escapeMd(
             values.join(", ")
           )}`
       )
@@ -2010,7 +2421,7 @@ async function productPreview(
       ? draft.variants
           .map(
             variant =>
-              `• ${escapeHtml(
+              `• ${escapeMd(
                 variant.name
               )} — ${variant.stock}`
           )
@@ -2023,56 +2434,56 @@ async function productPreview(
 
     chatId,
 
-    "<b>پیش‌نمایش محصول</b>\n\n" +
+    "*پیش‌نمایش محصول*\n\n" +
 
-    `<b>نام:</b> ${escapeHtml(
+    `*نام:* ${escapeMd(
       draft.name
     )}\n` +
 
-    `<b>دسته:</b> ${escapeHtml(
+    `*دسته:* ${escapeMd(
       draft.category || "-"
     )}\n` +
 
-    `<b>توضیحات:</b> ${escapeHtml(
+    `*توضیحات:* ${escapeMd(
       draft.description || "-"
     )}\n` +
 
-    `<b>قیمت:</b> ${safeNumber(
+    `*قیمت:* ${safeNumber(
       draft.price
     ).toLocaleString()}\n` +
 
-    `<b>قیمت قبل:</b> ${safeNumber(
+    `*قیمت قبل:* ${safeNumber(
       draft.compareAtPrice
     ).toLocaleString()}\n` +
 
-    `<b>تخفیف:</b> ${escapeHtml(
+    `*تخفیف:* ${escapeMd(
       draft.discountLabel ||
       "بدون تخفیف"
     )}\n\n` +
 
-    `<b>ویژگی‌ها:</b>\n${attributes}\n\n` +
+    `*ویژگی‌ها:*\n${attributes}\n\n` +
 
-    `<b>تنوع‌ها:</b>\n${variants}\n\n` +
+    `*تنوع‌ها:*\n${variants}\n\n` +
 
-    `<b>موجودی کل:</b> ${
+    `*موجودی کل:* ${
       draft.totalStock || 0
     }\n` +
 
-    `<b>محصول ویژه:</b> ${
+    `*محصول ویژه:* ${
       draft.featured
         ? "بله"
         : "خیر"
     }\n` +
 
-    `<b>برچسب‌ها:</b> ${
+    `*برچسب‌ها:* ${
       draft.tags.length
-        ? escapeHtml(
+        ? escapeMd(
             draft.tags.join(", ")
           )
         : "ندارد"
     }\n\n` +
 
-    `<b>تعداد تصاویر:</b> ${
+    `*تعداد تصاویر:* ${
       draft.images.length
     }`,
 
@@ -2167,7 +2578,7 @@ async function showCategorySelector(
 
     chatId,
 
-    "<b>دسته‌بندی محصول را انتخاب کنید:</b>",
+    "*دسته‌بندی محصول را انتخاب کنید:*",
 
     inlineKeyboard(
       rows
@@ -2458,50 +2869,11 @@ async function handleWizardText(
       }
 
 
-      draft.price =
-        safeNumber(
-          value
-        );
-
-      draft.step =
-        "compare";
-
-
-      await saveDraft(
-        chatId,
-        draft
-      );
-
-      await wizardNext(
-        chatId,
-        draft
-      );
-
-      return true;
-
-
-    case "compare":
-
-      if (
-        !/^\d+(\.\d+)?$/.test(
-          value
-        )
-      ) {
-
-        await sendMessage(
-          chatId,
-          "❗ عدد نامعتبر است."
-        );
-
-        return true;
-      }
-
-
+      // این مقدار همان قیمت اصلی/واقعی محصول است (قبل از تخفیف)
       draft.compareAtPrice =
         safeNumber(
           value
         );
-
 
       draft.step =
         "discount";
@@ -2555,9 +2927,9 @@ async function handleWizardText(
             chatId,
 
             "❗ فرمت صحیح:\n" +
-            "<code>percent:15</code>\n" +
-            "<code>amount:100000</code>\n" +
-            "<code>none</code>"
+            "`percent:15`\n" +
+            "`amount:100000`\n" +
+            "`none`"
           );
 
           return true;
@@ -2582,6 +2954,47 @@ async function handleWizardText(
 
             : `${draft.discountValue.toLocaleString()} تومان`;
       }
+
+
+      // قیمت نهایی فروش را خودکار از روی قیمت اصلی و مقدار تخفیف محاسبه می‌کنیم
+      const compareAtPrice =
+        safeNumber(
+          draft.compareAtPrice
+        );
+
+      let finalPrice =
+        compareAtPrice;
+
+      if (
+        draft.discountType ===
+        "percent"
+      ) {
+
+        finalPrice =
+          compareAtPrice -
+          (
+            compareAtPrice *
+            draft.discountValue /
+            100
+          );
+
+      } else if (
+        draft.discountType ===
+        "amount"
+      ) {
+
+        finalPrice =
+          compareAtPrice -
+          draft.discountValue;
+      }
+
+      draft.price =
+        Math.max(
+          0,
+          Math.round(
+            finalPrice
+          )
+        );
 
 
       draft.step =
@@ -2998,6 +3411,114 @@ async function handleWizardText(
       );
 
 
+    case "category_edit_name":
+
+      await updateCategory(
+        draft.editCategoryId,
+        {
+          name:
+            value
+        }
+      );
+
+      await deleteDraft(
+        chatId
+      );
+
+      return showCategoryDetail(
+        chatId,
+        draft.editCategoryId
+      );
+
+
+    case "category_edit_icon":
+
+      await updateCategory(
+        draft.editCategoryId,
+        {
+          icon:
+            value
+        }
+      );
+
+      await deleteDraft(
+        chatId
+      );
+
+      return showCategoryDetail(
+        chatId,
+        draft.editCategoryId
+      );
+
+
+    case "badge_name":
+
+      await createBadge({
+
+        name:
+          value,
+
+        icon:
+          "🏷️",
+
+        active:
+          true
+      });
+
+      await deleteDraft(
+        chatId
+      );
+
+      return sendMessage(
+
+        chatId,
+
+        "✅ گزینه ویژه ایجاد شد.",
+
+        mainKeyboard()
+      );
+
+
+    case "badge_edit_name":
+
+      await updateBadge(
+        draft.editBadgeId,
+        {
+          name:
+            value
+        }
+      );
+
+      await deleteDraft(
+        chatId
+      );
+
+      return showBadgeDetail(
+        chatId,
+        draft.editBadgeId
+      );
+
+
+    case "badge_edit_icon":
+
+      await updateBadge(
+        draft.editBadgeId,
+        {
+          icon:
+            value
+        }
+      );
+
+      await deleteDraft(
+        chatId
+      );
+
+      return showBadgeDetail(
+        chatId,
+        draft.editBadgeId
+      );
+
+
     default:
 
       return true;
@@ -3234,13 +3755,36 @@ async function showProductManagement(
   }
 
 
+  const badgesFile =
+    await getBadgesFile();
+
+  const badgeNames =
+    safeArray(product.badges)
+      .map(
+        badgeId => {
+
+          const badge =
+            badgesFile.data.find(
+              b =>
+                String(b.id) ===
+                String(badgeId)
+            );
+
+          return badge
+            ? `${badge.icon || "🏷️"} ${badge.name}`
+            : null;
+        }
+      )
+      .filter(Boolean);
+
+
   return sendMessage(
 
     chatId,
 
-    `<b>${escapeHtml(
+    `*${escapeMd(
       product.name
-    )}</b>\n\n` +
+    )}*\n\n` +
 
     `💰 قیمت: ${
       product.finalPrice.toLocaleString()
@@ -3264,6 +3808,14 @@ async function showProductManagement(
       product.featured
         ? "بله"
         : "خیر"
+    }\n` +
+
+    `🏷 گزینه‌های ویژه: ${
+      badgeNames.length
+        ? escapeMd(
+            badgeNames.join(", ")
+          )
+        : "ندارد"
     }\n` +
 
     `🖼 تصاویر: ${
@@ -3325,10 +3877,128 @@ async function showProductManagement(
       [
         {
           text:
+            "🏷️ گزینه‌های ویژه محصول",
+
+          callback_data:
+            `product:badges:${product.id}`
+        }
+      ],
+
+      [
+        {
+          text:
             "🗑 حذف",
 
           callback_data:
             `product:delete:${product.id}`
+        }
+      ]
+
+    ])
+  );
+}
+
+
+async function showProductBadgeSelector(
+  chatId,
+  productId
+) {
+
+  const productsFile =
+    await getProductsFile();
+
+  const product =
+    productsFile.data
+      .map(normalizeProduct)
+      .find(
+        p =>
+          p.id === productId
+      );
+
+  if (!product) {
+
+    return sendMessage(
+      chatId,
+      "❌ محصول پیدا نشد."
+    );
+  }
+
+  const badgesFile =
+    await getBadgesFile();
+
+  const badges =
+    safeArray(
+      badgesFile.data
+    ).filter(
+      badge =>
+        badge.active !== false
+    );
+
+  const productBadges =
+    safeArray(
+      product.badges
+    );
+
+  if (badges.length === 0) {
+
+    return sendMessage(
+
+      chatId,
+
+      "هیچ گزینه‌ی فعالی تعریف نشده است. ابتدا از منوی «🏷️ گزینه‌های ویژه» یک مورد اضافه کنید.",
+
+      inlineKeyboard([
+
+        [
+          {
+            text:
+              "🔙 بازگشت",
+
+            callback_data:
+              `prodbadgedone:${product.id}`
+          }
+        ]
+
+      ])
+    );
+  }
+
+  const rows =
+    badges.map(
+      badge => [
+
+        {
+          text:
+            `${
+              productBadges.includes(badge.id)
+                ? "✅"
+                : "☑️"
+            } ${badge.icon || "🏷️"} ${badge.name}`,
+
+          callback_data:
+            `prodbadge:${product.id}:${badge.id}`
+        }
+      ]
+    );
+
+  return sendMessage(
+
+    chatId,
+
+    `*${escapeMd(product.name)}*\n\n` +
+    "روی هر گزینه بزنید تا فعال/غیرفعال شود:",
+
+    inlineKeyboard([
+
+      ...rows,
+
+      [
+        {
+          text:
+            "✅ پایان",
+
+          callback_data:
+            `prodbadgedone:${product.id}`
         }
       ]
 
@@ -3392,6 +4062,16 @@ async function handleCallbackQuery(
   // ----------------------------------------------------------
   // CATEGORY
   // ----------------------------------------------------------
+
+  if (
+    data === "categories.list"
+  ) {
+
+    return showCategories(
+      chatId
+    );
+  }
+
 
   if (
     data ===
@@ -3520,6 +4200,358 @@ async function handleCallbackQuery(
     return wizardNext(
       chatId,
       draft
+    );
+  }
+
+
+  // نمایش جزئیات یک دسته‌بندی به همراه دکمه‌های ویرایش/حذف
+  if (
+    data.startsWith(
+      "catview:"
+    )
+  ) {
+
+    return showCategoryDetail(
+      chatId,
+      data.substring(
+        "catview:".length
+      )
+    );
+  }
+
+
+  // شروع ویرایش نام دسته‌بندی
+  if (
+    data.startsWith(
+      "catedit_name:"
+    )
+  ) {
+
+    const categoryId =
+      data.substring(
+        "catedit_name:".length
+      );
+
+    await saveDraft(
+      chatId,
+      {
+        step:
+          "category_edit_name",
+        editCategoryId:
+          categoryId
+      }
+    );
+
+    return sendMessage(
+      chatId,
+      "نام جدید دسته‌بندی را ارسال کنید:"
+    );
+  }
+
+
+  // شروع ویرایش آیکون دسته‌بندی
+  if (
+    data.startsWith(
+      "catedit_icon:"
+    )
+  ) {
+
+    const categoryId =
+      data.substring(
+        "catedit_icon:".length
+      );
+
+    await saveDraft(
+      chatId,
+      {
+        step:
+          "category_edit_icon",
+        editCategoryId:
+          categoryId
+      }
+    );
+
+    return sendMessage(
+      chatId,
+      "ایموجی/آیکون جدید دسته‌بندی را ارسال کنید (مثلاً 👕):"
+    );
+  }
+
+
+  // فعال/غیرفعال کردن دسته‌بندی
+  if (
+    data.startsWith(
+      "cattoggle:"
+    )
+  ) {
+
+    return handleCategoryToggle(
+      chatId,
+      data.substring(
+        "cattoggle:".length
+      )
+    );
+  }
+
+
+  // نمایش پیام تایید حذف دسته‌بندی
+  if (
+    data.startsWith(
+      "catdel_confirm:"
+    )
+  ) {
+
+    return handleCategoryDeleteConfirm(
+      chatId,
+      data.substring(
+        "catdel_confirm:".length
+      )
+    );
+  }
+
+
+  // حذف نهایی دسته‌بندی
+  if (
+    data.startsWith(
+      "catdel:"
+    )
+  ) {
+
+    return handleCategoryDelete(
+      chatId,
+      data.substring(
+        "catdel:".length
+      )
+    );
+  }
+
+
+  // ----------------------------------------------------------
+  // BADGES (گزینه‌های ویژه)
+  // ----------------------------------------------------------
+
+  if (
+    data === "badges.list"
+  ) {
+
+    return showBadges(
+      chatId
+    );
+  }
+
+
+  if (
+    data === "badge:new"
+  ) {
+
+    await saveDraft(
+      chatId,
+      {
+        step:
+          "badge_name"
+      }
+    );
+
+    return sendMessage(
+      chatId,
+      "نام گزینه ویژه جدید را ارسال کنید (مثلاً: پرفروش):"
+    );
+  }
+
+
+  if (
+    data.startsWith(
+      "badgeview:"
+    )
+  ) {
+
+    return showBadgeDetail(
+      chatId,
+      data.substring(
+        "badgeview:".length
+      )
+    );
+  }
+
+
+  if (
+    data.startsWith(
+      "badgeedit_name:"
+    )
+  ) {
+
+    const badgeId =
+      data.substring(
+        "badgeedit_name:".length
+      );
+
+    await saveDraft(
+      chatId,
+      {
+        step:
+          "badge_edit_name",
+        editBadgeId:
+          badgeId
+      }
+    );
+
+    return sendMessage(
+      chatId,
+      "نام جدید گزینه را ارسال کنید:"
+    );
+  }
+
+
+  if (
+    data.startsWith(
+      "badgeedit_icon:"
+    )
+  ) {
+
+    const badgeId =
+      data.substring(
+        "badgeedit_icon:".length
+      );
+
+    await saveDraft(
+      chatId,
+      {
+        step:
+          "badge_edit_icon",
+        editBadgeId:
+          badgeId
+      }
+    );
+
+    return sendMessage(
+      chatId,
+      "ایموجی/آیکون جدید گزینه را ارسال کنید (مثلاً 🔥):"
+    );
+  }
+
+
+  if (
+    data.startsWith(
+      "badgetoggle:"
+    )
+  ) {
+
+    return handleBadgeToggle(
+      chatId,
+      data.substring(
+        "badgetoggle:".length
+      )
+    );
+  }
+
+
+  if (
+    data.startsWith(
+      "badgedel_confirm:"
+    )
+  ) {
+
+    return handleBadgeDeleteConfirm(
+      chatId,
+      data.substring(
+        "badgedel_confirm:".length
+      )
+    );
+  }
+
+
+  if (
+    data.startsWith(
+      "badgedel:"
+    )
+  ) {
+
+    return handleBadgeDelete(
+      chatId,
+      data.substring(
+        "badgedel:".length
+      )
+    );
+  }
+
+
+  // تغییر گزینه‌های ویژه‌ی یک محصول (چندانتخابی) هنگام ویرایش محصول
+  if (
+    data.startsWith(
+      "prodbadge:"
+    )
+  ) {
+
+    const parts =
+      data.split(":");
+
+    const productId =
+      parts[1];
+
+    const badgeId =
+      parts[2];
+
+    const file =
+      await getProductsFile();
+
+    const product =
+      file.data
+        .map(normalizeProduct)
+        .find(
+          p =>
+            p.id === productId
+        );
+
+    if (!product) {
+
+      return sendMessage(
+        chatId,
+        "❌ محصول پیدا نشد."
+      );
+    }
+
+    const currentBadges =
+      safeArray(
+        product.badges
+      );
+
+    const newBadges =
+      currentBadges.includes(badgeId)
+        ? currentBadges.filter(
+            id =>
+              id !== badgeId
+          )
+        : [
+            ...currentBadges,
+            badgeId
+          ];
+
+    await updateProduct(
+      productId,
+      {
+        badges:
+          newBadges
+      }
+    );
+
+    return showProductBadgeSelector(
+      chatId,
+      productId
+    );
+  }
+
+
+  if (
+    data.startsWith(
+      "prodbadgedone:"
+    )
+  ) {
+
+    return showProductManagement(
+      chatId,
+      data.substring(
+        "prodbadgedone:".length
+      )
     );
   }
 
@@ -3686,11 +4718,11 @@ async function handleCallbackQuery(
 
       `✅ محصول با موفقیت ثبت شد.\n\n` +
 
-      `<b>${escapeHtml(
+      `*${escapeMd(
         product.name
-      )}</b>\n` +
+      )}*\n` +
 
-      `شناسه: <code>${product.id}</code>\n` +
+      `شناسه: \`${product.id}\`\n` +
 
       `موجودی: ${
         product.totalStock
@@ -3753,7 +4785,7 @@ async function handleCallbackQuery(
 
       chatId,
 
-      `<b>ویرایش محصول</b>\n${escapeHtml(
+      `*ویرایش محصول*\n${escapeMd(
         product.name
       )}\n\nیک مورد را انتخاب کنید:`,
 
@@ -3912,7 +4944,7 @@ async function handleCallbackQuery(
 
       chatId,
 
-      `مقدار جدید برای <b>${field}</b> را ارسال کنید:`
+      `مقدار جدید برای *${field}* را ارسال کنید:`
     );
   }
 
@@ -4160,9 +5192,9 @@ async function handleCallbackQuery(
 
       chatId,
 
-      `<b>${escapeHtml(
+      `*${escapeMd(
         product.name
-      )}</b>\n\n` +
+      )}*\n\n` +
 
       `تعداد تصاویر: ${
         product.images.length
@@ -4272,6 +5304,25 @@ async function handleCallbackQuery(
     return showProductManagement(
       chatId,
       productId
+    );
+  }
+
+
+  // ----------------------------------------------------------
+  // PRODUCT BADGES (گزینه‌های ویژه محصول)
+  // ----------------------------------------------------------
+
+  if (
+    data.startsWith(
+      "product:badges:"
+    )
+  ) {
+
+    return showProductBadgeSelector(
+      chatId,
+      data.substring(
+        "product:badges:".length
+      )
     );
   }
 
@@ -4413,6 +5464,17 @@ async function handleMainMenu(
 
   if (
     text ===
+    "🏷️ گزینه‌های ویژه"
+  ) {
+
+    return showBadges(
+      chatId
+    );
+  }
+
+
+  if (
+    text ===
     "📊 موجودی"
   ) {
 
@@ -4475,7 +5537,7 @@ async function handleMainMenu(
 
       chatId,
 
-      `🌐 <a href="${SITE_URL}">مشاهده سایت</a>`,
+      `🌐 [مشاهده سایت](${SITE_URL})`,
 
       mainKeyboard()
     );
@@ -4505,7 +5567,7 @@ async function showCategories(
 
 
   let message =
-    "<b>📂 دسته‌بندی‌ها</b>\n\n";
+    "*📂 دسته‌بندی‌ها*\n\n";
 
 
   if (
@@ -4518,21 +5580,29 @@ async function showCategories(
   } else {
 
     message +=
-      categories
-        .map(
-          category =>
-            `• ${category.icon || "📦"} ${
-              escapeHtml(
-                category.name
-              )
-            } — ${
+      "برای ویرایش یا حذف هر دسته، از دکمه‌های زیر همان دسته استفاده کنید.";
+  }
+
+
+  const categoryRows =
+    categories.map(
+      category => [
+
+        {
+          text:
+            `${category.icon || "📦"} ${
+              category.name
+            } (${
               category.active === false
                 ? "غیرفعال"
                 : "فعال"
-            }`
-        )
-        .join("\n");
-  }
+            })`,
+
+          callback_data:
+            `catview:${category.id}`
+        }
+      ]
+    );
 
 
   return sendMessage(
@@ -4542,6 +5612,8 @@ async function showCategories(
     message,
 
     inlineKeyboard([
+
+      ...categoryRows,
 
       [
         {
@@ -4564,6 +5636,535 @@ async function showCategories(
       ]
 
     ])
+  );
+}
+
+
+// ============================================================
+// CATEGORY DETAIL / EDIT / DELETE
+// ============================================================
+
+async function showCategoryDetail(
+  chatId,
+  categoryId
+) {
+
+  const file =
+    await getCategoriesFile();
+
+  const category =
+    file.data.find(
+      c =>
+        String(c.id) ===
+        String(categoryId)
+    );
+
+  if (!category) {
+
+    return sendMessage(
+      chatId,
+      "❌ دسته‌بندی پیدا نشد."
+    );
+  }
+
+  const message =
+    `*${category.icon || "📦"} ${
+      escapeMd(category.name)
+    }*\n\n` +
+    `وضعیت: ${
+      category.active === false
+        ? "غیرفعال"
+        : "فعال"
+    }\n` +
+    `شناسه: \`${category.id}\``;
+
+  return sendMessage(
+
+    chatId,
+
+    message,
+
+    inlineKeyboard([
+
+      [
+        {
+          text:
+            "✏️ ویرایش نام",
+
+          callback_data:
+            `catedit_name:${category.id}`
+        },
+        {
+          text:
+            "✏️ ویرایش آیکون",
+
+          callback_data:
+            `catedit_icon:${category.id}`
+        }
+      ],
+
+      [
+        {
+          text:
+            category.active === false
+              ? "✅ فعال‌سازی"
+              : "🚫 غیرفعال‌سازی",
+
+          callback_data:
+            `cattoggle:${category.id}`
+        }
+      ],
+
+      [
+        {
+          text:
+            "🗑 حذف دسته‌بندی",
+
+          callback_data:
+            `catdel_confirm:${category.id}`
+        }
+      ],
+
+      [
+        {
+          text:
+            "🔙 بازگشت به لیست",
+
+          callback_data:
+            "categories.list"
+        }
+      ]
+
+    ])
+  );
+}
+
+
+async function handleCategoryDeleteConfirm(
+  chatId,
+  categoryId
+) {
+
+  const file =
+    await getCategoriesFile();
+
+  const category =
+    file.data.find(
+      c =>
+        String(c.id) ===
+        String(categoryId)
+    );
+
+  if (!category) {
+
+    return sendMessage(
+      chatId,
+      "❌ دسته‌بندی پیدا نشد."
+    );
+  }
+
+  return sendMessage(
+
+    chatId,
+
+    `⚠️ آیا از حذف دسته‌بندی *${
+      escapeMd(category.name)
+    }* مطمئن هستید؟`,
+
+    inlineKeyboard([
+
+      [
+        {
+          text:
+            "✅ بله، حذف کن",
+
+          callback_data:
+            `catdel:${category.id}`
+        },
+        {
+          text:
+            "❌ انصراف",
+
+          callback_data:
+            `catview:${category.id}`
+        }
+      ]
+
+    ])
+  );
+}
+
+
+async function handleCategoryDelete(
+  chatId,
+  categoryId
+) {
+
+  try {
+
+    await deleteCategory(
+      categoryId
+    );
+
+    await sendMessage(
+      chatId,
+      "✅ دسته‌بندی حذف شد."
+    );
+
+  } catch (err) {
+
+    await sendMessage(
+      chatId,
+      `❌ ${err.message}`
+    );
+  }
+
+  return showCategories(
+    chatId
+  );
+}
+
+
+async function handleCategoryToggle(
+  chatId,
+  categoryId
+) {
+
+  const file =
+    await getCategoriesFile();
+
+  const category =
+    file.data.find(
+      c =>
+        String(c.id) ===
+        String(categoryId)
+    );
+
+  if (!category) {
+
+    return sendMessage(
+      chatId,
+      "❌ دسته‌بندی پیدا نشد."
+    );
+  }
+
+  await updateCategory(
+    categoryId,
+    {
+      active:
+        category.active === false
+    }
+  );
+
+  return showCategoryDetail(
+    chatId,
+    categoryId
+  );
+}
+
+
+// ============================================================
+// BADGES MENU / DETAIL / EDIT / DELETE
+// ============================================================
+
+async function showBadges(
+  chatId
+) {
+
+  const file =
+    await getBadgesFile();
+
+  const badges =
+    safeArray(
+      file.data
+    );
+
+  let message =
+    "*🏷️ گزینه‌های ویژه*\n\n";
+
+  if (
+    badges.length === 0
+  ) {
+
+    message +=
+      "هنوز گزینه‌ای ثبت نشده است.";
+
+  } else {
+
+    message +=
+      "برای ویرایش یا حذف هر گزینه، از دکمه‌های زیر همان گزینه استفاده کنید.";
+  }
+
+  const badgeRows =
+    badges.map(
+      badge => [
+
+        {
+          text:
+            `${badge.icon || "🏷️"} ${
+              badge.name
+            } (${
+              badge.active === false
+                ? "غیرفعال"
+                : "فعال"
+            })`,
+
+          callback_data:
+            `badgeview:${badge.id}`
+        }
+      ]
+    );
+
+  return sendMessage(
+
+    chatId,
+
+    message,
+
+    inlineKeyboard([
+
+      ...badgeRows,
+
+      [
+        {
+          text:
+            "➕ افزودن گزینه ویژه",
+
+          callback_data:
+            "badge:new"
+        }
+      ],
+
+      [
+        {
+          text:
+            "🏠 منوی اصلی",
+
+          callback_data:
+            "menu"
+        }
+      ]
+
+    ])
+  );
+}
+
+
+async function showBadgeDetail(
+  chatId,
+  badgeId
+) {
+
+  const file =
+    await getBadgesFile();
+
+  const badge =
+    file.data.find(
+      b =>
+        String(b.id) ===
+        String(badgeId)
+    );
+
+  if (!badge) {
+
+    return sendMessage(
+      chatId,
+      "❌ گزینه پیدا نشد."
+    );
+  }
+
+  const message =
+    `*${badge.icon || "🏷️"} ${
+      escapeMd(badge.name)
+    }*\n\n` +
+    `وضعیت: ${
+      badge.active === false
+        ? "غیرفعال"
+        : "فعال"
+    }\n` +
+    `شناسه: \`${badge.id}\``;
+
+  return sendMessage(
+
+    chatId,
+
+    message,
+
+    inlineKeyboard([
+
+      [
+        {
+          text:
+            "✏️ ویرایش نام",
+
+          callback_data:
+            `badgeedit_name:${badge.id}`
+        },
+        {
+          text:
+            "✏️ ویرایش آیکون",
+
+          callback_data:
+            `badgeedit_icon:${badge.id}`
+        }
+      ],
+
+      [
+        {
+          text:
+            badge.active === false
+              ? "✅ فعال‌سازی"
+              : "🚫 غیرفعال‌سازی",
+
+          callback_data:
+            `badgetoggle:${badge.id}`
+        }
+      ],
+
+      [
+        {
+          text:
+            "🗑 حذف گزینه",
+
+          callback_data:
+            `badgedel_confirm:${badge.id}`
+        }
+      ],
+
+      [
+        {
+          text:
+            "🔙 بازگشت به لیست",
+
+          callback_data:
+            "badges.list"
+        }
+      ]
+
+    ])
+  );
+}
+
+
+async function handleBadgeDeleteConfirm(
+  chatId,
+  badgeId
+) {
+
+  const file =
+    await getBadgesFile();
+
+  const badge =
+    file.data.find(
+      b =>
+        String(b.id) ===
+        String(badgeId)
+    );
+
+  if (!badge) {
+
+    return sendMessage(
+      chatId,
+      "❌ گزینه پیدا نشد."
+    );
+  }
+
+  return sendMessage(
+
+    chatId,
+
+    `⚠️ آیا از حذف گزینه *${
+      escapeMd(badge.name)
+    }* مطمئن هستید؟ این گزینه از همه‌ی محصولات مرتبط هم حذف می‌شود.`,
+
+    inlineKeyboard([
+
+      [
+        {
+          text:
+            "✅ بله، حذف کن",
+
+          callback_data:
+            `badgedel:${badge.id}`
+        },
+        {
+          text:
+            "❌ انصراف",
+
+          callback_data:
+            `badgeview:${badge.id}`
+        }
+      ]
+
+    ])
+  );
+}
+
+
+async function handleBadgeDelete(
+  chatId,
+  badgeId
+) {
+
+  try {
+
+    await deleteBadge(
+      badgeId
+    );
+
+    await sendMessage(
+      chatId,
+      "✅ گزینه حذف شد."
+    );
+
+  } catch (err) {
+
+    await sendMessage(
+      chatId,
+      `❌ ${err.message}`
+    );
+  }
+
+  return showBadges(
+    chatId
+  );
+}
+
+
+async function handleBadgeToggle(
+  chatId,
+  badgeId
+) {
+
+  const file =
+    await getBadgesFile();
+
+  const badge =
+    file.data.find(
+      b =>
+        String(b.id) ===
+        String(badgeId)
+    );
+
+  if (!badge) {
+
+    return sendMessage(
+      chatId,
+      "❌ گزینه پیدا نشد."
+    );
+  }
+
+  await updateBadge(
+    badgeId,
+    {
+      active:
+        badge.active === false
+    }
+  );
+
+  return showBadgeDetail(
+    chatId,
+    badgeId
   );
 }
 
@@ -4606,7 +6207,7 @@ async function showInventory(
 
   let message =
 
-    "<b>📊 موجودی فروشگاه</b>\n\n" +
+    "*📊 موجودی فروشگاه*\n\n" +
 
     `تعداد محصولات: ${products.length}\n` +
 
@@ -4620,13 +6221,13 @@ async function showInventory(
   ) {
 
     message +=
-      "\n\n<b>کم‌موجودی‌ها:</b>\n" +
+      "\n\n*کم‌موجودی‌ها:*\n" +
 
       lowStock
         .slice(0, 20)
         .map(
           product =>
-            `• ${escapeHtml(
+            `• ${escapeMd(
               product.name
             )}: ${
               product.totalStock
@@ -4687,18 +6288,18 @@ async function showOrders(
 
   const message =
 
-    "<b>🛒 آخرین سفارش‌ها</b>\n\n" +
+    "*🛒 آخرین سفارش‌ها*\n\n" +
 
     orders
       .map(
         order =>
 
-          `• <b>${escapeHtml(
+          `• *${escapeMd(
             order.id || "-"
-          )}</b>\n` +
+          )}*\n` +
 
           `وضعیت: ${
-            escapeHtml(
+            escapeMd(
               order.status ||
               "pending"
             )
@@ -4747,7 +6348,7 @@ async function showCustomers(
 
   let message =
 
-    "<b>👥 مشتریان</b>\n\n" +
+    "*👥 مشتریان*\n\n" +
 
     `تعداد مشتریان: ${
       customers.length
@@ -4767,14 +6368,14 @@ async function showCustomers(
         .map(
           customer =>
 
-            `• ${escapeHtml(
+            `• ${escapeMd(
               customer.name ||
               customer.username ||
               "بدون نام"
             )}` +
             (
               customer.phone
-                ? ` — ${escapeHtml(
+                ? ` — ${escapeMd(
                     customer.phone
                   )}`
                 : ""
@@ -4817,7 +6418,7 @@ async function showDiscounts(
 
 
   let message =
-    "<b>🏷️ تخفیف‌ها</b>\n\n";
+    "*🏷️ تخفیف‌ها*\n\n";
 
 
   if (
@@ -4833,7 +6434,7 @@ async function showDiscounts(
       discounts
         .map(
           discount =>
-            `• ${escapeHtml(
+            `• ${escapeMd(
               discount.code ||
               discount.name ||
               discount.id
@@ -4883,10 +6484,10 @@ async function showSettings(
 
     chatId,
 
-    "<b>⚙️ تنظیمات</b>\n\n" +
+    "*⚙️ تنظیمات*\n\n" +
 
     `واحد پول: ${
-      escapeHtml(
+      escapeMd(
         settings.currency ||
         "IRR"
       )
@@ -5410,6 +7011,56 @@ async function handleApiAction(
 
       return createCategory(
         body
+      );
+
+
+    case "categories.update":
+
+      return updateCategory(
+        body.id,
+        body
+      );
+
+
+    case "categories.delete":
+
+      return deleteCategory(
+        body.id
+      );
+
+
+    // --------------------------------------------------------
+    // BADGES
+    // --------------------------------------------------------
+
+    case "badges.list": {
+
+      const file =
+        await getBadgesFile();
+
+      return file.data;
+    }
+
+
+    case "badges.create":
+
+      return createBadge(
+        body
+      );
+
+
+    case "badges.update":
+
+      return updateBadge(
+        body.id,
+        body
+      );
+
+
+    case "badges.delete":
+
+      return deleteBadge(
+        body.id
       );
 
 
