@@ -3244,20 +3244,64 @@ function renderProducts(){
    STOCK
 ========================================================= */
 
-function getTotalStock(product){
+function getTotalStock(product) {
 
-    return product.variants.reduce(
-        (total,variant) => {
+    if (!product) {
+        return 0;
+    }
 
-            return total +
-                (
-                    variant.enabled !== false
-                    ? Number(variant.stock) || 0
-                    : 0
+    // ============================================
+    // محصول دارای تنوع
+    // ============================================
+    if (
+        Array.isArray(product.variants) &&
+        product.variants.length > 0
+    ) {
+
+        return product.variants.reduce(
+            (total, variant) => {
+
+                // فقط تنوع فعال در موجودی محاسبه شود
+                const active =
+                    variant.active !== false &&
+                    variant.enabled !== false;
+
+                if (!active) {
+                    return total;
+                }
+
+                return total + (
+                    Number(variant.stock) || 0
                 );
 
-        },
+            },
+            0
+        );
+    }
+
+    // ============================================
+    // محصول بدون تنوع
+    // ============================================
+    // در این حالت موجودی مستقیماً از stock محصول خوانده می‌شود.
+    //
+    // مثال:
+    // stock: 5
+    // variants: []
+    //
+    // نتیجه = 5
+    // ============================================
+
+    const stock = Number(
+        product.stock ??
+        product.totalStock ??
         0
+    );
+
+    return Math.max(
+        0,
+        Number.isFinite(stock)
+            ? stock
+            : 0
     );
 }
 
