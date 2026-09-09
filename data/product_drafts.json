@@ -1,6 +1,6 @@
 {
   "1918832223": {
-    "step": "stock",
+    "step": "featured",
     "name": "زیبا",
     "images": [
       {
@@ -17,7 +17,7 @@
     "discountLabel": "بدون تخفیف",
     "attributes": {},
     "variants": [],
-    "totalStock": 0,
+    "totalStock": 5,
     "featured": false,
     "tags": []
   }
