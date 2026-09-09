@@ -4,21 +4,78 @@
     "name": "خودم در آینده",
     "category": "📱 دیجیتال",
     "image": "images/P26090805044261.jpg",
-    "createdAt": "2026-09-08T05:04:44.361Z"
+    "createdAt": "2026-09-08T05:04:44.361Z",
+    "description": "",
+    "categoryId": null,
+    "images": [
+      "images/P26090805044261.jpg"
+    ],
+    "price": 0,
+    "compareAtPrice": 0,
+    "discountPercent": 0,
+    "discountAmount": 0,
+    "finalPrice": 0,
+    "currency": "IRR",
+    "attributes": {},
+    "variants": [],
+    "stock": 0,
+    "totalStock": 0,
+    "active": true,
+    "featured": false,
+    "tags": [],
+    "updatedAt": "2026-09-09T08:17:10.096Z"
   },
   {
     "id": "P26090805265871",
     "name": "خودم تو جلسه",
     "category": "👟 کفش",
     "image": "images/P26090805265871.jpg",
-    "createdAt": "2026-09-08T05:27:00.667Z"
+    "createdAt": "2026-09-08T05:27:00.667Z",
+    "description": "",
+    "categoryId": null,
+    "images": [
+      "images/P26090805265871.jpg"
+    ],
+    "price": 0,
+    "compareAtPrice": 0,
+    "discountPercent": 0,
+    "discountAmount": 0,
+    "finalPrice": 0,
+    "currency": "IRR",
+    "attributes": {},
+    "variants": [],
+    "stock": 0,
+    "totalStock": 0,
+    "active": true,
+    "featured": false,
+    "tags": [],
+    "updatedAt": "2026-09-09T08:17:10.096Z"
   },
   {
     "id": "P26090807525753",
     "name": "خودم آبی",
     "category": "👜 کیف",
     "image": "images/P26090807525753.jpg",
-    "createdAt": "2026-09-08T07:52:59.529Z"
+    "createdAt": "2026-09-08T07:52:59.529Z",
+    "description": "",
+    "categoryId": null,
+    "images": [
+      "images/P26090807525753.jpg"
+    ],
+    "price": 0,
+    "compareAtPrice": 0,
+    "discountPercent": 0,
+    "discountAmount": 0,
+    "finalPrice": 0,
+    "currency": "IRR",
+    "attributes": {},
+    "variants": [],
+    "stock": 0,
+    "totalStock": 0,
+    "active": true,
+    "featured": false,
+    "tags": [],
+    "updatedAt": "2026-09-09T08:17:10.096Z"
   },
   {
     "id": "P26090904564400",
@@ -44,6 +101,50 @@
     "featured": false,
     "tags": [],
     "createdAt": "2026-09-09T04:56:46.037Z",
-    "updatedAt": "2026-09-09T04:56:46.037Z"
+    "updatedAt": "2026-09-09T08:17:10.096Z"
+  },
+  {
+    "id": "P26090908165843",
+    "name": "من زیبا",
+    "description": "",
+    "categoryId": "clothing",
+    "category": "👕 پوشاک",
+    "price": 65100,
+    "compareAtPrice": 70000,
+    "attributes": {
+      "رنگ": [
+        "سفید"
+      ]
+    },
+    "variants": [
+      {
+        "id": "V_mtttqplb_qo1l0n",
+        "name": "سفید",
+        "attributes": {
+          "رنگ": "سفید"
+        },
+        "price": 0,
+        "stock": 5,
+        "sku": "",
+        "active": true
+      }
+    ],
+    "stock": 5,
+    "totalStock": 5,
+    "featured": true,
+    "tags": [
+      "ویژه، پر فروش"
+    ],
+    "active": true,
+    "images": [
+      "images/P26090908165843.jpg"
+    ],
+    "image": "images/P26090908165843.jpg",
+    "discountPercent": 7,
+    "discountAmount": 4900,
+    "finalPrice": 65100,
+    "currency": "IRR",
+    "createdAt": "2026-09-09T08:16:58.029Z",
+    "updatedAt": "2026-09-09T08:17:10.096Z"
   }
 ]
