@@ -23,7 +23,8 @@
     "active": true,
     "featured": false,
     "tags": [],
-    "updatedAt": "2026-09-09T08:17:10.096Z"
+    "updatedAt": "2026-09-09T10:21:16.634Z",
+    "badges": []
   },
   {
     "id": "P26090805265871",
@@ -49,7 +50,8 @@
     "active": true,
     "featured": false,
     "tags": [],
-    "updatedAt": "2026-09-09T08:17:10.096Z"
+    "updatedAt": "2026-09-09T10:21:16.634Z",
+    "badges": []
   },
   {
     "id": "P26090807525753",
@@ -75,7 +77,8 @@
     "active": true,
     "featured": false,
     "tags": [],
-    "updatedAt": "2026-09-09T08:17:10.096Z"
+    "updatedAt": "2026-09-09T10:21:16.634Z",
+    "badges": []
   },
   {
     "id": "P26090904564400",
@@ -101,7 +104,8 @@
     "featured": false,
     "tags": [],
     "createdAt": "2026-09-09T04:56:46.037Z",
-    "updatedAt": "2026-09-09T08:17:10.096Z"
+    "updatedAt": "2026-09-09T10:21:16.634Z",
+    "badges": []
   },
   {
     "id": "P26090908165843",
@@ -145,6 +149,34 @@
     "finalPrice": 65100,
     "currency": "IRR",
     "createdAt": "2026-09-09T08:16:58.029Z",
-    "updatedAt": "2026-09-09T08:17:10.096Z"
+    "updatedAt": "2026-09-09T10:21:16.634Z",
+    "badges": []
+  },
+  {
+    "id": "P26090910211256",
+    "name": "زیبا",
+    "description": "",
+    "categoryId": "beauty",
+    "category": "💄 لوازم آرایشی",
+    "price": 100000,
+    "compareAtPrice": 100000,
+    "attributes": {},
+    "variants": [],
+    "stock": 5,
+    "totalStock": 5,
+    "featured": true,
+    "tags": [],
+    "active": true,
+    "images": [
+      "images/P26090910211256.jpg"
+    ],
+    "image": "images/P26090910211256.jpg",
+    "discountPercent": 0,
+    "discountAmount": 0,
+    "finalPrice": 100000,
+    "currency": "IRR",
+    "badges": [],
+    "createdAt": "2026-09-09T10:21:12.019Z",
+    "updatedAt": "2026-09-09T10:21:16.634Z"
   }
 ]
