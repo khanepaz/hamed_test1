@@ -1,14 +1,14 @@
 {
   "1918832223": {
-    "step": "category",
+    "step": "description",
     "name": "زیبا",
     "images": [
       {
         "fileId": "1918832223:17966211583319809:0:8c81e4b05421eb9bfabc99ac7cfaac6cfb83f446c20dbf65"
       }
     ],
-    "categoryId": null,
-    "category": "",
+    "categoryId": "beauty",
+    "category": "💄 لوازم آرایشی",
     "description": "",
     "price": 0,
     "compareAtPrice": 0,
