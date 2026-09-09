@@ -1,6 +1,6 @@
 {
   "1918832223": {
-    "step": "featured",
+    "step": "tags",
     "name": "زیبا",
     "images": [
       {
@@ -18,7 +18,7 @@
     "attributes": {},
     "variants": [],
     "totalStock": 5,
-    "featured": false,
+    "featured": true,
     "tags": []
   }
 }
