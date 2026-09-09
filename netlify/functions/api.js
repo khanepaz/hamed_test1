@@ -1,6 +1,10 @@
 // ============================================================
-// HamedShop - Complete Netlify API
+// HamedShop - Netlify API
 // Bale Bot <-> Netlify <-> GitHub
+// ============================================================
+
+// ============================================================
+// CONFIG
 // ============================================================
 
 const GITHUB_OWNER = "khanepaz";
@@ -8,21 +12,20 @@ const GITHUB_REPO = "hamed_test1";
 const GITHUB_BRANCH = "main";
 
 const SITE_URL = "https://khanepaz.github.io/hamed_test1/";
-const API_VERSION = "2.0.0";
+const API_VERSION = "1.0.0";
+
 
 // ============================================================
-// DEFAULT CATEGORIES
+// TEMPORARY BALE WIZARD STATE
+// ============================================================
+//
+// این Map فقط برای حفظ رفتار فعلی ربات استفاده می‌شود.
+// در مرحله بعد می‌توانیم Wizard را کاملاً persistent کنیم.
+//
 // ============================================================
 
-const DEFAULT_CATEGORIES = [
-  { id: "digital", name: "📱 دیجیتال", icon: "📱", active: true },
-  { id: "shoes", name: "👟 کفش", icon: "👟", active: true },
-  { id: "bags", name: "👜 کیف", icon: "👜", active: true },
-  { id: "clothes", name: "👕 پوشاک", icon: "👕", active: true },
-  { id: "home", name: "🏠 خانه", icon: "🏠", active: true },
-  { id: "beauty", name: "💄 زیبایی", icon: "💄", active: true },
-  { id: "other", name: "📦 سایر", icon: "📦", active: true }
-];
+const pendingProducts = new Map();
+
 
 // ============================================================
 // COMMON
@@ -32,41 +35,62 @@ function nowISO() {
   return new Date().toISOString();
 }
 
+
 function generateId(prefix = "ID") {
-  return (
-    prefix +
-    "_" +
-    Date.now().toString(36) +
-    "_" +
-    Math.random().toString(36).substring(2, 8)
-  );
+  const time = Date.now().toString(36);
+  const random = Math.random()
+    .toString(36)
+    .substring(2, 8);
+
+  return `${prefix}_${time}_${random}`;
 }
+
 
 function generateProductId() {
-  const d = new Date();
+  const now = new Date();
 
-  const yy = String(d.getFullYear()).slice(-2);
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
+  const yy = String(now.getFullYear()).slice(-2);
+  const mm = String(now.getMonth() + 1).padStart(2, "0");
+  const dd = String(now.getDate()).padStart(2, "0");
 
-  const hh = String(d.getHours()).padStart(2, "0");
-  const mi = String(d.getMinutes()).padStart(2, "0");
-  const ss = String(d.getSeconds()).padStart(2, "0");
+  const hh = String(now.getHours()).padStart(2, "0");
+  const min = String(now.getMinutes()).padStart(2, "0");
+  const sec = String(now.getSeconds()).padStart(2, "0");
 
-  const random = String(
-    Math.floor(Math.random() * 100)
-  ).padStart(2, "0");
+  const random = Math.floor(Math.random() * 100)
+    .toString()
+    .padStart(2, "0");
 
-  return `P${yy}${mm}${dd}${hh}${mi}${ss}${random}`;
+  return `P${yy}${mm}${dd}${hh}${min}${sec}${random}`;
 }
 
-function number(value, fallback = 0) {
-  const n = Number(value);
-  return Number.isFinite(n) ? n : fallback;
+
+function safeNumber(value, defaultValue = 0) {
+  const number = Number(value);
+
+  if (!Number.isFinite(number)) {
+    return defaultValue;
+  }
+
+  return number;
 }
 
-function parseBody(event) {
-  if (!event || !event.body) return {};
+
+function positiveNumber(value, fieldName = "value") {
+  const number = Number(value);
+
+  if (!Number.isFinite(number) || number < 0) {
+    throw new Error(`${fieldName} must be a valid non-negative number`);
+  }
+
+  return number;
+}
+
+
+function parseJsonBody(event) {
+  if (!event || !event.body) {
+    return {};
+  }
 
   if (typeof event.body === "object") {
     return event.body;
@@ -78,6 +102,7 @@ function parseBody(event) {
     throw new Error("Invalid JSON body");
   }
 }
+
 
 function jsonResponse(statusCode, data) {
   return {
@@ -94,11 +119,25 @@ function jsonResponse(statusCode, data) {
   };
 }
 
+
+function textResponse(statusCode, text) {
+  return {
+    statusCode,
+    headers: {
+      "Content-Type": "text/plain; charset=utf-8",
+      "Access-Control-Allow-Origin": "*"
+    },
+    body: text
+  };
+}
+
+
 // ============================================================
-// BALE
+// BALE API
 // ============================================================
 
 async function baleRequest(method, data) {
+
   const token = process.env.BALE_BOT_TOKEN;
 
   if (!token) {
@@ -138,32 +177,13 @@ async function baleRequest(method, data) {
   return result.result;
 }
 
-async function sendMessage(chatId, text, replyMarkup = null) {
-  const data = {
-    chat_id: chatId,
-    text
-  };
-
-  if (replyMarkup) {
-    data.reply_markup = replyMarkup;
-  }
-
-  return baleRequest("sendMessage", data);
-}
-
-async function answerCallback(callbackId) {
-  try {
-    await baleRequest("answerCallbackQuery", {
-      callback_query_id: callbackId
-    });
-  } catch {}
-}
 
 // ============================================================
-// GITHUB
+// GITHUB API
 // ============================================================
 
 async function githubRequest(path, options = {}) {
+
   const token = process.env.GITHUB_TOKEN;
 
   if (!token) {
@@ -174,9 +194,10 @@ async function githubRequest(path, options = {}) {
     `https://api.github.com${path}`,
     {
       ...options,
+
       headers: {
-        Accept: "application/vnd.github+json",
-        Authorization: `Bearer ${token}`,
+        "Accept": "application/vnd.github+json",
+        "Authorization": `Bearer ${token}`,
         "X-GitHub-Api-Version": "2022-11-28",
         "User-Agent": "HamedShop",
         "Content-Type": "application/json",
@@ -196,6 +217,7 @@ async function githubRequest(path, options = {}) {
   }
 
   if (!response.ok) {
+
     throw new Error(
       `GitHub API Error ${response.status}: ${JSON.stringify(data)}`
     );
@@ -204,38 +226,68 @@ async function githubRequest(path, options = {}) {
   return data;
 }
 
-function githubPath(path) {
-  return `/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${path}`;
+
+// ============================================================
+// GITHUB PATH HELPER
+// ============================================================
+
+function githubContentPath(path) {
+
+  return (
+    `/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${path}`
+  );
 }
 
-async function readJsonFile(path, fallback = []) {
+
+// ============================================================
+// READ JSON FILE FROM GITHUB
+// ============================================================
+
+async function readJsonFile(path, defaultValue = []) {
+
   try {
+
     const result = await githubRequest(
-      `${githubPath(path)}?ref=${encodeURIComponent(
-        GITHUB_BRANCH
-      )}`
+      `${githubContentPath(path)}?ref=${encodeURIComponent(GITHUB_BRANCH)}`
     );
 
     if (!result.content) {
       return {
-        data: fallback,
+        data: defaultValue,
         sha: result.sha
       };
     }
 
-    const decoded = Buffer.from(
-      result.content.replace(/\n/g, ""),
-      "base64"
-    ).toString("utf8");
+    const decoded = Buffer
+      .from(
+        result.content.replace(/\n/g, ""),
+        "base64"
+      )
+      .toString("utf8");
+
+    let data;
+
+    try {
+      data = JSON.parse(decoded);
+    } catch {
+      throw new Error(
+        `Invalid JSON in ${path}`
+      );
+    }
 
     return {
-      data: JSON.parse(decoded),
+      data,
       sha: result.sha
     };
+
   } catch (error) {
-    if (error.message.includes("GitHub API Error 404")) {
+
+    if (
+      error.message.includes("GitHub API Error 404")
+    ) {
+
       return {
-        data: fallback,
+        data: defaultValue,
         sha: null
       };
     }
@@ -244,24 +296,34 @@ async function readJsonFile(path, fallback = []) {
   }
 }
 
+
+// ============================================================
+// WRITE JSON FILE TO GITHUB
+// ============================================================
+
 async function writeJsonFile(
   path,
   data,
   message,
   sha = null
 ) {
-  const content = JSON.stringify(
+
+  const jsonContent = JSON.stringify(
     data,
     null,
     2
   );
 
+  const base64Content = Buffer
+    .from(jsonContent, "utf8")
+    .toString("base64");
+
   const body = {
+
     message,
-    content: Buffer.from(
-      content,
-      "utf8"
-    ).toString("base64"),
+
+    content: base64Content,
+
     branch: GITHUB_BRANCH
   };
 
@@ -270,7 +332,7 @@ async function writeJsonFile(
   }
 
   return githubRequest(
-    githubPath(path),
+    githubContentPath(path),
     {
       method: "PUT",
       body: JSON.stringify(body)
@@ -278,80 +340,100 @@ async function writeJsonFile(
   );
 }
 
+
 // ============================================================
 // PRODUCTS
 // ============================================================
 
 async function getProductsFile() {
+
   return readJsonFile(
     "data/products.json",
     []
   );
 }
 
-function calculateProduct(product) {
-  const price = number(product.price);
-  const compareAtPrice = number(
-    product.compareAtPrice
-  );
 
-  let discountAmount = 0;
+async function saveProductsFile(
+  products,
+  sha,
+  message = "Update products"
+) {
+
+  return writeJsonFile(
+    "data/products.json",
+    products,
+    message,
+    sha
+  );
+}
+
+
+function normalizeProduct(product) {
+
+  const price =
+    safeNumber(product.price, 0);
+
+  const compareAtPrice =
+    safeNumber(
+      product.compareAtPrice,
+      price
+    );
+
+  const variants =
+    Array.isArray(product.variants)
+      ? product.variants
+      : [];
+
+  let totalStock =
+    safeNumber(product.totalStock, 0);
+
+  if (variants.length > 0) {
+
+    totalStock = variants.reduce(
+      (sum, variant) =>
+        sum +
+        safeNumber(variant.stock, 0),
+      0
+    );
+  }
+
+  if (
+    variants.length === 0 &&
+    product.stock !== undefined
+  ) {
+
+    totalStock =
+      safeNumber(product.stock, 0);
+  }
+
+  const discountAmount =
+    Math.max(
+      compareAtPrice - price,
+      0
+    );
+
   let discountPercent = 0;
 
   if (
     compareAtPrice > 0 &&
-    price > 0 &&
     price < compareAtPrice
   ) {
-    discountAmount =
-      compareAtPrice - price;
 
-    discountPercent = Math.round(
-      (discountAmount / compareAtPrice) * 100
-    );
-  }
-
-  const variants = Array.isArray(
-    product.variants
-  )
-    ? product.variants
-    : [];
-
-  let totalStock = 0;
-
-  if (variants.length > 0) {
-    totalStock = variants.reduce(
-      (sum, variant) =>
-        sum + number(variant.stock),
-      0
-    );
-  } else {
-    totalStock = number(product.stock);
+    discountPercent =
+      Math.round(
+        (
+          discountAmount /
+          compareAtPrice
+        ) *
+        100
+      );
   }
 
   return {
+
     ...product,
 
-    price,
-
-    compareAtPrice,
-
-    discountPercent,
-
-    discountAmount,
-
-    finalPrice: price,
-
-    variants,
-
-    stock: totalStock,
-
-    totalStock
-  };
-}
-
-function normalizeProduct(product) {
-  return calculateProduct({
     id:
       product.id ||
       generateProductId(),
@@ -383,20 +465,22 @@ function normalizeProduct(product) {
           ? [product.image]
           : [],
 
-    price:
-      number(product.price),
+    price,
 
-    compareAtPrice:
-      number(product.compareAtPrice),
+    compareAtPrice,
+
+    discountPercent,
+
+    discountAmount,
+
+    finalPrice:
+      price,
 
     currency:
       product.currency ||
       "IRR",
 
-    variants:
-      Array.isArray(product.variants)
-        ? product.variants
-        : [],
+    variants,
 
     attributes:
       product.attributes &&
@@ -405,10 +489,9 @@ function normalizeProduct(product) {
         : {},
 
     stock:
-      number(product.stock),
+      totalStock,
 
-    totalStock:
-      number(product.totalStock),
+    totalStock,
 
     active:
       product.active !== false,
@@ -428,42 +511,59 @@ function normalizeProduct(product) {
     updatedAt:
       product.updatedAt ||
       nowISO()
-  });
+  };
 }
 
-async function saveProducts(
-  products,
-  sha,
-  message
-) {
-  return writeJsonFile(
-    "data/products.json",
-    products,
-    message,
-    sha
-  );
+
+// ============================================================
+// GET PRODUCT
+// ============================================================
+
+async function getProduct(productId) {
+
+  const file =
+    await getProductsFile();
+
+  const product =
+    file.data.find(
+      item =>
+        item.id === productId
+    );
+
+  return product
+    ? normalizeProduct(product)
+    : null;
 }
+
+
+// ============================================================
+// CREATE PRODUCT
+// ============================================================
 
 async function createProduct(product) {
+
   const file =
     await getProductsFile();
 
   const normalized =
     normalizeProduct({
       ...product,
+
       id:
         product.id ||
         generateProductId(),
+
       createdAt:
         product.createdAt ||
         nowISO(),
+
       updatedAt:
         nowISO()
     });
 
   file.data.push(normalized);
 
-  await saveProducts(
+  await saveProductsFile(
     file.data,
     file.sha,
     `Add product ${normalized.id}`
@@ -472,171 +572,541 @@ async function createProduct(product) {
   return normalized;
 }
 
+
+// ============================================================
+// UPDATE PRODUCT
+// ============================================================
+
+async function updateProduct(
+  productId,
+  changes
+) {
+
+  const file =
+    await getProductsFile();
+
+  const index =
+    file.data.findIndex(
+      item =>
+        item.id === productId
+    );
+
+  if (index === -1) {
+    throw new Error(
+      "Product not found"
+    );
+  }
+
+  const updated =
+    normalizeProduct({
+      ...file.data[index],
+      ...changes,
+      id: productId,
+      updatedAt: nowISO()
+    });
+
+  file.data[index] =
+    updated;
+
+  await saveProductsFile(
+    file.data,
+    file.sha,
+    `Update product ${productId}`
+  );
+
+  return updated;
+}
+
+
+// ============================================================
+// DELETE PRODUCT
+// ============================================================
+
+async function deleteProduct(
+  productId
+) {
+
+  const file =
+    await getProductsFile();
+
+  const index =
+    file.data.findIndex(
+      item =>
+        item.id === productId
+    );
+
+  if (index === -1) {
+    throw new Error(
+      "Product not found"
+    );
+  }
+
+  const deleted =
+    file.data[index];
+
+  file.data.splice(index, 1);
+
+  await saveProductsFile(
+    file.data,
+    file.sha,
+    `Delete product ${productId}`
+  );
+
+  return deleted;
+}
+
+
 // ============================================================
 // CATEGORIES
 // ============================================================
 
 async function getCategoriesFile() {
-  const file =
-    await readJsonFile(
-      "data/categories.json",
-      []
-    );
 
-  if (
-    !Array.isArray(file.data) ||
-    file.data.length === 0
-  ) {
-    return {
-      data: DEFAULT_CATEGORIES,
-      sha: file.sha
-    };
-  }
-
-  return file;
-}
-
-async function saveCategories(
-  categories,
-  sha,
-  message
-) {
-  return writeJsonFile(
-    "data/categories.json",
-    categories,
-    message,
-    sha
-  );
-}
-
-// ============================================================
-// INVENTORY
-// ============================================================
-
-async function getInventoryFile() {
   return readJsonFile(
-    "data/inventory.json",
+    "data/categories.json",
     []
   );
 }
 
-async function rebuildInventory() {
-  const products =
-    await getProductsFile();
 
-  const inventory =
-    products.data.map(product => ({
-      productId: product.id,
-      name: product.name,
-      stock: number(
-        product.totalStock ??
-        product.stock
-      ),
-      variants:
-        Array.isArray(product.variants)
-          ? product.variants
-          : [],
-      updatedAt: nowISO()
-    }));
+async function createCategory(category) {
 
   const file =
-    await getInventoryFile();
+    await getCategoriesFile();
+
+  const newCategory = {
+
+    id:
+      category.id ||
+      generateId("cat"),
+
+    name:
+      category.name ||
+      "دسته‌بندی جدید",
+
+    icon:
+      category.icon ||
+      "📦",
+
+    active:
+      category.active !== false,
+
+    createdAt:
+      nowISO(),
+
+    updatedAt:
+      nowISO()
+  };
+
+  file.data.push(newCategory);
 
   await writeJsonFile(
-    "data/inventory.json",
-    inventory,
-    "Update inventory",
+    "data/categories.json",
+    file.data,
+    `Add category ${newCategory.id}`,
     file.sha
   );
 
-  return inventory;
+  return newCategory;
 }
 
+
 // ============================================================
-// ORDERS
+// VARIANTS
 // ============================================================
 
-async function getOrdersFile() {
+async function getVariantsFile() {
+
   return readJsonFile(
-    "data/orders.json",
+    "data/variants.json",
     []
   );
 }
 
-async function getCustomersFile() {
-  return readJsonFile(
-    "data/customers.json",
-    []
-  );
+
+async function syncVariantsFromProducts(
+  products
+) {
+
+  const variants = [];
+
+  for (const product of products) {
+
+    if (
+      !Array.isArray(product.variants)
+    ) {
+      continue;
+    }
+
+    for (const variant of product.variants) {
+
+      variants.push({
+
+        ...variant,
+
+        productId:
+          product.id,
+
+        updatedAt:
+          nowISO()
+      });
+    }
+  }
+
+  return variants;
 }
+
+
+// ============================================================
+// DISCOUNTS
+// ============================================================
 
 async function getDiscountsFile() {
+
   return readJsonFile(
     "data/discounts.json",
     []
   );
 }
 
+
+function isDiscountActive(discount) {
+
+  if (discount.active === false) {
+    return false;
+  }
+
+  const now =
+    Date.now();
+
+  if (discount.startsAt) {
+
+    if (
+      now <
+      new Date(discount.startsAt).getTime()
+    ) {
+      return false;
+    }
+  }
+
+  if (discount.endsAt) {
+
+    if (
+      now >
+      new Date(discount.endsAt).getTime()
+    ) {
+      return false;
+    }
+  }
+
+  if (
+    discount.usageLimit !== undefined &&
+    safeNumber(discount.usedCount, 0) >=
+      safeNumber(discount.usageLimit, 0)
+  ) {
+    return false;
+  }
+
+  return true;
+}
+
+
+// ============================================================
+// APPLY DISCOUNT
+// ============================================================
+
+async function calculateDiscount(
+  code,
+  subtotal
+) {
+
+  if (!code) {
+
+    return {
+      discount: null,
+      amount: 0
+    };
+  }
+
+  const file =
+    await getDiscountsFile();
+
+  const discount =
+    file.data.find(
+      item =>
+        String(item.code || "")
+          .toUpperCase() ===
+        String(code)
+          .trim()
+          .toUpperCase()
+    );
+
+  if (!discount) {
+
+    throw new Error(
+      "کد تخفیف معتبر نیست"
+    );
+  }
+
+  if (!isDiscountActive(discount)) {
+
+    throw new Error(
+      "کد تخفیف فعال نیست"
+    );
+  }
+
+  if (
+    discount.minOrderAmount &&
+    subtotal <
+      safeNumber(
+        discount.minOrderAmount
+      )
+  ) {
+
+    throw new Error(
+      "مبلغ سفارش برای استفاده از این تخفیف کافی نیست"
+    );
+  }
+
+  let amount = 0;
+
+  if (
+    discount.type === "percent"
+  ) {
+
+    amount =
+      Math.floor(
+        subtotal *
+        (
+          safeNumber(
+            discount.value
+          ) /
+          100
+        )
+      );
+
+  } else {
+
+    amount =
+      safeNumber(
+        discount.value
+      );
+  }
+
+  amount =
+    Math.min(
+      amount,
+      subtotal
+    );
+
+  return {
+    discount,
+    amount
+  };
+}
+
+
+// ============================================================
+// ORDERS
+// ============================================================
+
+async function getOrdersFile() {
+
+  return readJsonFile(
+    "data/orders.json",
+    []
+  );
+}
+
+
+async function getOrder(orderId) {
+
+  const file =
+    await getOrdersFile();
+
+  return (
+    file.data.find(
+      order =>
+        order.id === orderId
+    ) || null
+  );
+}
+
+
+// ============================================================
+// CUSTOMERS
+// ============================================================
+
+async function getCustomersFile() {
+
+  return readJsonFile(
+    "data/customers.json",
+    []
+  );
+}
+
+
+async function findOrCreateCustomer(
+  customerData
+) {
+
+  const file =
+    await getCustomersFile();
+
+  const phone =
+    customerData.phone
+      ? String(customerData.phone).trim()
+      : null;
+
+  let customer =
+    file.data.find(
+      item =>
+        phone &&
+        item.phone === phone
+    );
+
+  if (customer) {
+
+    customer.name =
+      customerData.name ||
+      customer.name;
+
+    customer.address =
+      customerData.address ||
+      customer.address;
+
+    customer.updatedAt =
+      nowISO();
+
+  } else {
+
+    customer = {
+
+      id:
+        generateId("CUS"),
+
+      name:
+        customerData.name ||
+        "",
+
+      phone,
+
+      address:
+        customerData.address ||
+        "",
+
+      createdAt:
+        nowISO(),
+
+      updatedAt:
+        nowISO()
+    };
+
+    file.data.push(
+      customer
+    );
+  }
+
+  await writeJsonFile(
+    "data/customers.json",
+    file.data,
+    `Update customer ${customer.id}`,
+    file.sha
+  );
+
+  return customer;
+}
+
+
+// ============================================================
+// INVENTORY
+// ============================================================
+
+async function getInventoryFile() {
+
+  return readJsonFile(
+    "data/inventory.json",
+    []
+  );
+}
+
+
+async function syncInventory() {
+
+  const productsFile =
+    await getProductsFile();
+
+  const inventory =
+    productsFile.data.map(
+      product => ({
+
+        productId:
+          product.id,
+
+        productName:
+          product.name,
+
+        stock:
+          safeNumber(
+            product.totalStock ??
+            product.stock,
+            0
+          ),
+
+        variants:
+          Array.isArray(
+            product.variants
+          )
+            ? product.variants.map(
+                variant => ({
+
+                  variantId:
+                    variant.id,
+
+                  name:
+                    variant.name ||
+                    "",
+
+                  sku:
+                    variant.sku ||
+                    "",
+
+                  stock:
+                    safeNumber(
+                      variant.stock,
+                      0
+                    )
+                })
+              )
+            : [],
+
+        updatedAt:
+          nowISO()
+      })
+    );
+
+  return inventory;
+}
+
+
+// ============================================================
+// SETTINGS
+// ============================================================
+
 async function getSettingsFile() {
+
   return readJsonFile(
     "data/settings.json",
     {
       shopName: "HamedShop",
       currency: "IRR",
-      shippingCost: 0
+      shippingCost: 0,
+      freeShippingThreshold: 0,
+      active: true
     }
   );
 }
 
-// ============================================================
-// PERSISTENT BALE SESSIONS
-// ============================================================
-
-async function getSessionsFile() {
-  return readJsonFile(
-    "data/bale_sessions.json",
-    {}
-  );
-}
-
-async function getSession(chatId) {
-  const file =
-    await getSessionsFile();
-
-  return file.data[String(chatId)] || null;
-}
-
-async function saveSession(
-  chatId,
-  session
-) {
-  const file =
-    await getSessionsFile();
-
-  file.data[String(chatId)] =
-    session;
-
-  await writeJsonFile(
-    "data/bale_sessions.json",
-    file.data,
-    `Update Bale session ${chatId}`,
-    file.sha
-  );
-}
-
-async function deleteSession(chatId) {
-  const file =
-    await getSessionsFile();
-
-  delete file.data[String(chatId)];
-
-  await writeJsonFile(
-    "data/bale_sessions.json",
-    file.data,
-    `Delete Bale session ${chatId}`,
-    file.sha
-  );
-}
 
 // ============================================================
 // IMAGE UPLOAD
@@ -644,16 +1114,13 @@ async function deleteSession(chatId) {
 
 async function uploadImageToGitHub(
   fileId,
-  productId
+  productId,
+  imageIndex = 0
 ) {
-  const token =
-    process.env.BALE_BOT_TOKEN;
 
-  if (!token) {
-    throw new Error(
-      "BALE_BOT_TOKEN is missing"
-    );
-  }
+  console.log(
+    "Getting Bale file information..."
+  );
 
   const fileInfo =
     await baleRequest(
@@ -663,1718 +1130,514 @@ async function uploadImageToGitHub(
       }
     );
 
-  if (!fileInfo || !fileInfo.file_path) {
+  if (
+    !fileInfo ||
+    !fileInfo.file_path
+  ) {
+
     throw new Error(
       "Bale file_path not found"
     );
   }
 
-  const downloadUrl =
+  console.log(
+    "Bale file path:",
+    fileInfo.file_path
+  );
+
+  const token =
+    process.env.BALE_BOT_TOKEN;
+
+  const fileUrl =
     `https://tapi.bale.ai/file/bot${token}/${fileInfo.file_path}`;
 
-  const response =
-    await fetch(downloadUrl);
+  console.log(
+    "Downloading image from Bale..."
+  );
 
-  if (!response.ok) {
+  const imageResponse =
+    await fetch(fileUrl);
+
+  if (!imageResponse.ok) {
+
     throw new Error(
-      "Could not download image from Bale"
+      `Could not download image from Bale: ${imageResponse.status}`
     );
   }
 
-  const arrayBuffer =
-    await response.arrayBuffer();
+  const imageBuffer =
+    await imageResponse.arrayBuffer();
 
-  const base64 =
-    Buffer.from(
-      arrayBuffer
-    ).toString("base64");
+  const base64Image =
+    Buffer
+      .from(imageBuffer)
+      .toString("base64");
 
-  const path =
-    `images/${productId}.jpg`;
+  const suffix =
+    imageIndex === 0
+      ? ""
+      : `-${imageIndex}`;
 
-  let sha = null;
+  const githubPath =
+    `images/${productId}${suffix}.jpg`;
+
+  console.log(
+    "Uploading image to GitHub:",
+    githubPath
+  );
+
+  const result =
+    await githubRequest(
+      githubContentPath(githubPath),
+      {
+        method: "PUT",
+
+        body: JSON.stringify({
+
+          message:
+            `Add product image ${productId}`,
+
+          content:
+            base64Image,
+
+          branch:
+            GITHUB_BRANCH
+        })
+      }
+    );
+
+  console.log(
+    "Image uploaded successfully."
+  );
+
+  return {
+
+    path:
+      githubPath,
+
+    sha:
+      result.content?.sha
+  };
+}
+
+
+// ============================================================
+// BALE MAIN MENU
+// ============================================================
+
+async function sendMainMenu(
+  chatId
+) {
+
+  await baleRequest(
+    "sendMessage",
+    {
+
+      chat_id:
+        chatId,
+
+      text:
+        "🛍️ به HamedShop خوش آمدید\n\n" +
+        "لطفاً یک گزینه را انتخاب کنید:",
+
+      reply_markup: {
+
+        keyboard: [
+
+          [
+            {
+              text:
+                "➕ افزودن محصول"
+            },
+
+            {
+              text:
+                "📦 مشاهده محصولات"
+            }
+          ],
+
+          [
+            {
+              text:
+                "🌐 مشاهده سایت"
+            }
+          ]
+
+        ],
+
+        resize_keyboard:
+          true
+      }
+    }
+  );
+}
+
+
+// ============================================================
+// CATEGORY MENU
+// ============================================================
+
+async function sendCategoryMenu(
+  chatId
+) {
 
   try {
-    const existing =
-      await githubRequest(
-        `${githubPath(path)}?ref=${encodeURIComponent(
-          GITHUB_BRANCH
-        )}`
-      );
 
-    sha = existing.sha;
-  } catch {}
-
-  const body = {
-    message:
-      `Upload product image ${productId}`,
-    content: base64,
-    branch: GITHUB_BRANCH
-  };
-
-  if (sha) {
-    body.sha = sha;
-  }
-
-  await githubRequest(
-    githubPath(path),
-    {
-      method: "PUT",
-      body: JSON.stringify(body)
-    }
-  );
-
-  return path;
-}
-
-// ============================================================
-// MAIN MENU
-// ============================================================
-
-function mainMenu() {
-  return {
-    keyboard: [
-      [
-        {
-          text: "➕ افزودن محصول"
-        },
-        {
-          text: "📦 مشاهده محصولات"
-        }
-      ],
-      [
-        {
-          text: "📂 دسته‌بندی‌ها"
-        },
-        {
-          text: "📊 موجودی"
-        }
-      ],
-      [
-        {
-          text: "🧾 سفارش‌ها"
-        },
-        {
-          text: "👥 مشتریان"
-        }
-      ],
-      [
-        {
-          text: "🏷 تخفیف‌ها"
-        },
-        {
-          text: "⚙️ تنظیمات"
-        }
-      ],
-      [
-        {
-          text: "🌐 مشاهده سایت"
-        }
-      ]
-    ],
-    resize_keyboard: true
-  };
-}
-
-async function sendMainMenu(chatId) {
-  await sendMessage(
-    chatId,
-    "🛍️ HamedShop\n\nمدیریت فروشگاه را انتخاب کنید:",
-    mainMenu()
-  );
-}
-
-// ============================================================
-// CATEGORY KEYBOARD
-// ============================================================
-
-async function categoryKeyboard() {
-  const file =
-    await getCategoriesFile();
-
-  const categories =
-    file.data.filter(
-      c => c.active !== false
-    );
-
-  const rows = [];
-
-  for (
-    let i = 0;
-    i < categories.length;
-    i += 2
-  ) {
-    const row = [];
-
-    row.push({
-      text: categories[i].name,
-      callback_data:
-        `cat:${categories[i].id}`
-    });
-
-    if (categories[i + 1]) {
-      row.push({
-        text:
-          categories[i + 1].name,
-        callback_data:
-          `cat:${categories[i + 1].id}`
-      });
-    }
-
-    rows.push(row);
-  }
-
-  rows.push([
-    {
-      text: "❌ لغو",
-      callback_data: "cancel_product"
-    }
-  ]);
-
-  return {
-    inline_keyboard: rows
-  };
-}
-
-// ============================================================
-// PRODUCT CREATION WIZARD
-// ============================================================
-
-async function startProductWizard(
-  chatId
-) {
-  await saveSession(
-    chatId,
-    {
-      type: "product",
-      step: "waiting_photo",
-      product: {
-        id: generateProductId(),
-        name: "",
-        category: "",
-        categoryId: null,
-        description: "",
-        image: "",
-        images: [],
-        price: 0,
-        compareAtPrice: 0,
-        discountPercent: 0,
-        discountAmount: 0,
-        finalPrice: 0,
-        currency: "IRR",
-        variants: [],
-        attributes: {},
-        stock: 0,
-        totalStock: 0,
-        active: true,
-        featured: false,
-        tags: []
-      },
-      createdAt: nowISO()
-    }
-  );
-
-  await sendMessage(
-    chatId,
-    "➕ ثبت محصول جدید\n\n📷 لطفاً عکس محصول را همراه با کپشن ارسال کنید.\n\nمثال:\nعکس محصول\nکپشن: کفش اسپرت مردانه"
-  );
-}
-
-async function askDescription(
-  chatId
-) {
-  await sendMessage(
-    chatId,
-    "📝 توضیحات محصول را وارد کنید.\n\nاگر توضیحات ندارد، بنویسید:\n«رد کردن»"
-  );
-}
-
-async function askPrice(chatId) {
-  await sendMessage(
-    chatId,
-    "💰 قیمت فروش محصول را به ریال وارد کنید.\n\nمثال:\n2500000"
-  );
-}
-
-async function askComparePrice(
-  chatId
-) {
-  await sendMessage(
-    chatId,
-    "💵 قیمت قبل از تخفیف را وارد کنید.\n\nاگر محصول تخفیف ندارد، بنویسید:\n«ندارد»"
-  );
-}
-
-async function askHasVariants(
-  chatId
-) {
-  await sendMessage(
-    chatId,
-    "🔹 آیا محصول دارای تنوع است؟",
-    {
-      inline_keyboard: [
-        [
-          {
-            text: "✅ بله",
-            callback_data:
-              "variants:yes"
-          },
-          {
-            text: "❌ خیر",
-            callback_data:
-              "variants:no"
-          }
-        ]
-      ]
-    }
-  );
-}
-
-async function askAttributes(
-  chatId
-) {
-  await sendMessage(
-    chatId,
-    `🎨 ویژگی‌ها و مقادیر تنوع را وارد کنید.
-
-فرمت:
-
-رنگ: مشکی، سفید، آبی
-سایز: 40، 41، 42
-
-هر ویژگی را در یک خط بنویسید.
-
-اگر تنوع ندارد، این مرحله را رد کنید.`
-  );
-}
-
-async function askVariantStocks(
-  chatId,
-  session
-) {
-  const attributes =
-    session.product.attributes || {};
-
-  const names =
-    Object.keys(attributes);
-
-  if (names.length === 0) {
-    session.step = "stock";
-    await saveSession(
-      chatId,
-      session
-    );
-
-    await sendMessage(
-      chatId,
-      "📦 موجودی کل محصول را وارد کنید."
-    );
-
-    return;
-  }
-
-  await sendMessage(
-    chatId,
-    `📦 حالا موجودی تنوع‌ها را وارد کنید.
-
-برای هر ترکیب یک خط:
-
-مشکی | 40 | 5
-مشکی | 41 | 3
-سفید | 40 | 2
-
-آخرین عدد = موجودی
-
-ترتیب ویژگی‌ها:
-${names.join(" + ")}`
-  );
-}
-
-async function askStock(chatId) {
-  await sendMessage(
-    chatId,
-    "📦 موجودی محصول را وارد کنید.\n\nمثال:\n25"
-  );
-}
-
-async function askFeatured(chatId) {
-  await sendMessage(
-    chatId,
-    "⭐ آیا این محصول ویژه باشد؟",
-    {
-      inline_keyboard: [
-        [
-          {
-            text: "⭐ بله",
-            callback_data:
-              "featured:yes"
-          },
-          {
-            text: "خیر",
-            callback_data:
-              "featured:no"
-          }
-        ]
-      ]
-    }
-  );
-}
-
-async function askTags(chatId) {
-  await sendMessage(
-    chatId,
-    "🏷 برچسب‌های محصول را وارد کنید.\n\nمثال:\nاسپرت، مردانه، جدید\n\nاگر برچسب ندارد بنویسید:\n«ندارد»"
-  );
-}
-
-async function showProductPreview(
-  chatId,
-  session
-) {
-  const p =
-    calculateProduct(
-      session.product
-    );
-
-  const variantText =
-    p.variants.length > 0
-      ? `\n🎨 تعداد تنوع: ${p.variants.length}`
-      : "\n🎨 تنوع: ندارد";
-
-  const tags =
-    p.tags.length > 0
-      ? p.tags.join("، ")
-      : "ندارد";
-
-  const discount =
-    p.discountPercent > 0
-      ? `${p.discountPercent}%`
-      : "ندارد";
-
-  const text =
-`👀 پیش‌نمایش محصول
-
-🆔 ${p.id}
-
-📦 نام:
-${p.name}
-
-📂 دسته‌بندی:
-${p.category}
-
-📝 توضیحات:
-${p.description || "ندارد"}
-
-💰 قیمت فروش:
-${p.price.toLocaleString("en-US")} ریال
-
-💵 قیمت قبل از تخفیف:
-${
-  p.compareAtPrice
-    ? p.compareAtPrice.toLocaleString("en-US")
-    : "ندارد"
-} ریال
-
-🏷 تخفیف:
-${discount}
-
-📦 موجودی:
-${p.totalStock}
-
-${variantText}
-
-⭐ ویژه:
-${p.featured ? "بله" : "خیر"}
-
-🏷 برچسب:
-${tags}`;
-
-  await sendMessage(
-    chatId,
-    text,
-    {
-      inline_keyboard: [
-        [
-          {
-            text: "✅ ثبت نهایی",
-            callback_data:
-              "product:confirm"
-          }
-        ],
-        [
-          {
-            text: "❌ لغو",
-            callback_data:
-              "cancel_product"
-          }
-        ]
-      ]
-    }
-  );
-}
-
-// ============================================================
-// ATTRIBUTE PARSER
-// ============================================================
-
-function parseAttributes(text) {
-  const attributes = {};
-
-  const lines =
-    String(text)
-      .split("\n")
-      .map(x => x.trim())
-      .filter(Boolean);
-
-  for (const line of lines) {
-    const index =
-      line.indexOf(":");
-
-    if (index === -1) continue;
-
-    const name =
-      line
-        .substring(0, index)
-        .trim();
-
-    const values =
-      line
-        .substring(index + 1)
-        .split(/[،,]/)
-        .map(x => x.trim())
-        .filter(Boolean);
-
-    if (
-      name &&
-      values.length
-    ) {
-      attributes[name] =
-        values;
-    }
-  }
-
-  return attributes;
-}
-
-// ============================================================
-// VARIANT STOCK PARSER
-// ============================================================
-
-function parseVariantStocks(
-  text,
-  attributes
-) {
-  const variants = [];
-
-  const attributeNames =
-    Object.keys(attributes);
-
-  const lines =
-    String(text)
-      .split("\n")
-      .map(x => x.trim())
-      .filter(Boolean);
-
-  for (const line of lines) {
-    const parts =
-      line
-        .split("|")
-        .map(x => x.trim());
-
-    if (
-      parts.length !==
-      attributeNames.length + 1
-    ) {
-      continue;
-    }
-
-    const stock =
-      number(
-        parts[parts.length - 1]
-      );
-
-    const variantAttributes = {};
-
-    for (
-      let i = 0;
-      i < attributeNames.length;
-      i++
-    ) {
-      variantAttributes[
-        attributeNames[i]
-      ] = parts[i];
-    }
-
-    variants.push({
-      id: generateId("var"),
-      attributes:
-        variantAttributes,
-      stock,
-      active: true
-    });
-  }
-
-  return variants;
-}
-
-// ============================================================
-// TEXT HANDLER FOR WIZARD
-// ============================================================
-
-async function handleProductText(
-  chatId,
-  text,
-  session
-) {
-  const value =
-    String(text).trim();
-
-  if (
-    value === "❌ لغو" ||
-    value === "/cancel"
-  ) {
-    await deleteSession(chatId);
-
-    await sendMessage(
-      chatId,
-      "❌ ثبت محصول لغو شد."
-    );
-
-    await sendMainMenu(chatId);
-    return;
-  }
-
-  const p =
-    session.product;
-
-  switch (session.step) {
-
-    case "description":
-
-      p.description =
-        value === "رد کردن"
-          ? ""
-          : value;
-
-      session.step =
-        "price";
-
-      await saveSession(
-        chatId,
-        session
-      );
-
-      await askPrice(chatId);
-
-      return;
-
-    case "price":
-
-      if (!/^\d+(\.\d+)?$/.test(
-        value.replace(/,/g, "")
-      )) {
-        await sendMessage(
-          chatId,
-          "❌ قیمت نامعتبر است.\nفقط عدد وارد کنید."
-        );
-        return;
-      }
-
-      p.price =
-        number(
-          value.replace(/,/g, "")
-        );
-
-      session.step =
-        "compare_price";
-
-      await saveSession(
-        chatId,
-        session
-      );
-
-      await askComparePrice(
-        chatId
-      );
-
-      return;
-
-    case "compare_price":
-
-      if (
-        value === "ندارد" ||
-        value === "رد کردن"
-      ) {
-        p.compareAtPrice =
-          0;
-      } else {
-
-        const n =
-          number(
-            value.replace(/,/g, "")
-          );
-
-        if (!Number.isFinite(n)) {
-          await sendMessage(
-            chatId,
-            "❌ عدد معتبر وارد کنید."
-          );
-          return;
-        }
-
-        p.compareAtPrice = n;
-      }
-
-      session.step =
-        "variants_question";
-
-      await saveSession(
-        chatId,
-        session
-      );
-
-      await askHasVariants(
-        chatId
-      );
-
-      return;
-
-    case "attributes":
-
-      const attributes =
-        parseAttributes(value);
-
-      if (
-        Object.keys(attributes)
-          .length === 0
-      ) {
-        await sendMessage(
-          chatId,
-          "❌ فرمت ویژگی‌ها صحیح نیست.\n\nمثال:\nرنگ: مشکی، سفید\nسایز: 40، 41"
-        );
-        return;
-      }
-
-      p.attributes =
-        attributes;
-
-      session.step =
-        "variant_stock";
-
-      await saveSession(
-        chatId,
-        session
-      );
-
-      await askVariantStocks(
-        chatId,
-        session
-      );
-
-      return;
-
-    case "variant_stock":
-
-      const variants =
-        parseVariantStocks(
-          value,
-          p.attributes
-        );
-
-      if (
-        variants.length === 0
-      ) {
-        await sendMessage(
-          chatId,
-          "❌ هیچ تنوع معتبری پیدا نشد.\n\nمثال:\nمشکی | 40 | 5\nمشکی | 41 | 3"
-        );
-        return;
-      }
-
-      p.variants =
-        variants;
-
-      p.totalStock =
-        variants.reduce(
-          (sum, v) =>
-            sum + number(v.stock),
-          0
-        );
-
-      p.stock =
-        p.totalStock;
-
-      session.step =
-        "featured";
-
-      await saveSession(
-        chatId,
-        session
-      );
-
-      await askFeatured(
-        chatId
-      );
-
-      return;
-
-    case "stock":
-
-      if (!/^\d+$/.test(
-        value.replace(/,/g, "")
-      )) {
-        await sendMessage(
-          chatId,
-          "❌ موجودی باید عدد باشد."
-        );
-        return;
-      }
-
-      p.stock =
-        number(
-          value.replace(/,/g, "")
-        );
-
-      p.totalStock =
-        p.stock;
-
-      session.step =
-        "featured";
-
-      await saveSession(
-        chatId,
-        session
-      );
-
-      await askFeatured(
-        chatId
-      );
-
-      return;
-
-    case "tags":
-
-      p.tags =
-        value === "ندارد"
-          ? []
-          : value
-              .split(/[،,]/)
-              .map(x => x.trim())
-              .filter(Boolean);
-
-      session.step =
-        "preview";
-
-      await saveSession(
-        chatId,
-        session
-      );
-
-      await showProductPreview(
-        chatId,
-        session
-      );
-
-      return;
-
-    default:
-
-      await sendMessage(
-        chatId,
-        "لطفاً از گزینه‌های نمایش داده شده استفاده کنید."
-      );
-
-      return;
-  }
-}
-
-// ============================================================
-// CALLBACK HANDLER
-// ============================================================
-
-async function handleCallbackQuery(
-  callback
-) {
-  const chatId =
-    callback.message &&
-    callback.message.chat
-      ? callback.message.chat.id
-      : null;
-
-  const data =
-    callback.data || "";
-
-  await answerCallback(
-    callback.id
-  );
-
-  if (!chatId) return;
-
-  // -------------------------
-  // CATEGORY
-  // -------------------------
-
-  if (data.startsWith("cat:")) {
-
-    const categoryId =
-      data.substring(4);
-
-    const categories =
+    const file =
       await getCategoriesFile();
 
-    const category =
-      categories.data.find(
-        c =>
-          c.id === categoryId
+    const categories =
+      Array.isArray(file.data)
+        ? file.data.filter(
+            item =>
+              item.active !== false
+          )
+        : [];
+
+    if (categories.length > 0) {
+
+      const rows = [];
+
+      for (
+        let i = 0;
+        i < categories.length;
+        i += 2
+      ) {
+
+        const row = [];
+
+        const first =
+          categories[i];
+
+        if (first) {
+
+          row.push({
+
+            text:
+              `${first.icon || "📦"} ${first.name}`,
+
+            callback_data:
+              `category_id:${first.id}`
+          });
+        }
+
+        const second =
+          categories[i + 1];
+
+        if (second) {
+
+          row.push({
+
+            text:
+              `${second.icon || "📦"} ${second.name}`,
+
+            callback_data:
+              `category_id:${second.id}`
+          });
+        }
+
+        rows.push(row);
+      }
+
+      await baleRequest(
+        "sendMessage",
+        {
+
+          chat_id:
+            chatId,
+
+          text:
+            "📂 لطفاً دسته‌بندی محصول را انتخاب کنید:",
+
+          reply_markup: {
+
+            inline_keyboard:
+              rows
+          }
+        }
       );
 
-    if (!category) {
-      await sendMessage(
-        chatId,
-        "❌ دسته‌بندی پیدا نشد."
-      );
       return;
     }
-
-    const session =
-      await getSession(chatId);
-
-    if (
-      !session ||
-      session.type !== "product"
-    ) {
-      await sendMessage(
-        chatId,
-        "⚠️ جلسه ثبت محصول منقضی شده است."
-      );
-      return;
-    }
-
-    session.product.category =
-      category.name;
-
-    session.product.categoryId =
-      category.id;
-
-    session.step =
-      "description";
-
-    await saveSession(
-      chatId,
-      session
-    );
-
-    await askDescription(
-      chatId
-    );
-
-    return;
-  }
-
-  // -------------------------
-  // CANCEL
-  // -------------------------
-
-  if (
-    data === "cancel_product"
-  ) {
-    await deleteSession(chatId);
-
-    await sendMessage(
-      chatId,
-      "❌ ثبت محصول لغو شد."
-    );
-
-    await sendMainMenu(chatId);
-
-    return;
-  }
-
-  // -------------------------
-  // VARIANTS
-  // -------------------------
-
-  if (
-    data === "variants:yes" ||
-    data === "variants:no"
-  ) {
-    const session =
-      await getSession(chatId);
-
-    if (!session) {
-      await sendMessage(
-        chatId,
-        "⚠️ جلسه ثبت محصول پیدا نشد."
-      );
-      return;
-    }
-
-    if (
-      data === "variants:yes"
-    ) {
-      session.step =
-        "attributes";
-
-      await saveSession(
-        chatId,
-        session
-      );
-
-      await askAttributes(
-        chatId
-      );
-
-    } else {
-
-      session.product.variants =
-        [];
-
-      session.product.attributes =
-        {};
-
-      session.step =
-        "stock";
-
-      await saveSession(
-        chatId,
-        session
-      );
-
-      await askStock(chatId);
-    }
-
-    return;
-  }
-
-  // -------------------------
-  // FEATURED
-  // -------------------------
-
-  if (
-    data === "featured:yes" ||
-    data === "featured:no"
-  ) {
-    const session =
-      await getSession(chatId);
-
-    if (!session) return;
-
-    session.product.featured =
-      data === "featured:yes";
-
-    session.step =
-      "tags";
-
-    await saveSession(
-      chatId,
-      session
-    );
-
-    await askTags(chatId);
-
-    return;
-  }
-
-  // -------------------------
-  // FINAL CONFIRM
-  // -------------------------
-
-  if (
-    data === "product:confirm"
-  ) {
-    const session =
-      await getSession(chatId);
-
-    if (
-      !session ||
-      session.type !== "product"
-    ) {
-      await sendMessage(
-        chatId,
-        "⚠️ جلسه ثبت محصول پیدا نشد."
-      );
-      return;
-    }
-
-    try {
-
-      const product =
-        normalizeProduct(
-          session.product
-        );
-
-      await createProduct(
-        product
-      );
-
-      await deleteSession(
-        chatId
-      );
-
-      // Update inventory
-      try {
-        await rebuildInventory();
-      } catch {}
-
-      await sendMessage(
-        chatId,
-`✅ محصول با موفقیت ثبت شد.
-
-📦 ${product.name}
-
-🆔 ${product.id}
-
-💰 ${product.price.toLocaleString(
-  "en-US"
-)} ریال
-
-📦 موجودی:
-${product.totalStock}
-
-🌐 محصول در سایت قرار گرفت.`
-      );
-
-      await sendMainMenu(
-        chatId
-      );
-
-    } catch (error) {
-
-      console.error(
-        "PRODUCT CREATE ERROR:",
-        error
-      );
-
-      await sendMessage(
-        chatId,
-`❌ خطا هنگام ثبت محصول:
-
-${error.message}`
-      );
-    }
-
-    return;
-  }
-}
-
-// ============================================================
-// PHOTO HANDLER
-// ============================================================
-
-async function handlePhotoMessage(
-  message
-) {
-  const chatId =
-    message.chat.id;
-
-  const photos =
-    Array.isArray(message.photo)
-      ? message.photo
-      : [];
-
-  if (photos.length === 0) {
-    return;
-  }
-
-  const session =
-    await getSession(chatId);
-
-  if (
-    !session ||
-    session.type !== "product"
-  ) {
-    await sendMessage(
-      chatId,
-      "📷 برای ثبت محصول ابتدا گزینه «➕ افزودن محصول» را انتخاب کنید."
-    );
-    return;
-  }
-
-  const photo =
-    photos[photos.length - 1];
-
-  const caption =
-    message.caption || "";
-
-  if (!caption.trim()) {
-    await sendMessage(
-      chatId,
-      "❌ لطفاً نام محصول را در کپشن عکس بنویسید."
-    );
-    return;
-  }
-
-  try {
-
-    const productId =
-      session.product.id ||
-      generateProductId();
-
-    const imagePath =
-      await uploadImageToGitHub(
-        photo.file_id,
-        productId
-      );
-
-    session.product.id =
-      productId;
-
-    session.product.name =
-      caption.trim();
-
-    session.product.image =
-      imagePath;
-
-    session.product.images =
-      [imagePath];
-
-    session.step =
-      "category";
-
-    await saveSession(
-      chatId,
-      session
-    );
-
-    await sendMessage(
-      chatId,
-      `✅ عکس دریافت شد.
-
-📦 نام محصول:
-${caption.trim()}
-
-حالا دسته‌بندی محصول را انتخاب کنید:`,
-      await categoryKeyboard()
-    );
 
   } catch (error) {
 
     console.error(
-      "PHOTO ERROR:",
+      "CATEGORY LOAD ERROR:",
       error
     );
-
-    await sendMessage(
-      chatId,
-`❌ خطا در دریافت عکس:
-
-${error.message}`
-    );
-  }
-}
-
-// ============================================================
-// TEXT MESSAGE HANDLER
-// ============================================================
-
-async function handleMessage(
-  message
-) {
-  const chatId =
-    message.chat.id;
-
-  const text =
-    (message.text || "").trim();
-
-  // -------------------------
-  // PHOTO
-  // -------------------------
-
-  if (
-    Array.isArray(message.photo) &&
-    message.photo.length
-  ) {
-    await handlePhotoMessage(
-      message
-    );
-    return;
   }
 
-  // -------------------------
-  // START
-  // -------------------------
 
-  if (
-    text === "/start" ||
-    text === "/menu"
-  ) {
-    await deleteSession(
-      chatId
-    );
+  // ----------------------------------------------------------
+  // FALLBACK
+  // ----------------------------------------------------------
 
-    await sendMainMenu(
-      chatId
-    );
+  await baleRequest(
+    "sendMessage",
+    {
 
-    return;
-  }
-
-  // -------------------------
-  // CANCEL
-  // -------------------------
-
-  if (
-    text === "/cancel" ||
-    text === "❌ لغو"
-  ) {
-    await deleteSession(
-      chatId
-    );
-
-    await sendMessage(
-      chatId,
-      "❌ عملیات لغو شد."
-    );
-
-    await sendMainMenu(
-      chatId
-    );
-
-    return;
-  }
-
-  // -------------------------
-  // ADD PRODUCT
-  // -------------------------
-
-  if (
-    text === "➕ افزودن محصول"
-  ) {
-    await startProductWizard(
-      chatId
-    );
-    return;
-  }
-
-  // -------------------------
-  // VIEW PRODUCTS
-  // -------------------------
-
-  if (
-    text === "📦 مشاهده محصولات"
-  ) {
-    const file =
-      await getProductsFile();
-
-    if (
-      !file.data.length
-    ) {
-      await sendMessage(
+      chat_id:
         chatId,
-        "📦 هنوز محصولی ثبت نشده است."
-      );
-      return;
-    }
 
-    let output =
-      "📦 محصولات:\n\n";
+      text:
+        "📂 لطفاً دسته‌بندی محصول را انتخاب کنید:",
 
-    for (
-      const product of
-      file.data.slice(-20).reverse()
-    ) {
-      const p =
-        normalizeProduct(
-          product
-        );
+      reply_markup: {
 
-      output +=
-`━━━━━━━━━━━━
-📦 ${p.name}
-📂 ${p.category || "بدون دسته"}
-💰 ${p.price.toLocaleString(
-  "en-US"
-)} ریال
-📦 موجودی: ${p.totalStock}
-🆔 ${p.id}
-
-`;
-    }
-
-    await sendMessage(
-      chatId,
-      output
-    );
-
-    return;
-  }
-
-  // -------------------------
-  // CATEGORIES
-  // -------------------------
-
-  if (
-    text === "📂 دسته‌بندی‌ها"
-  ) {
-    const file =
-      await getCategoriesFile();
-
-    let output =
-      "📂 دسته‌بندی‌ها:\n\n";
-
-    file.data.forEach(
-      (category, index) => {
-        output +=
-`${index + 1}. ${category.name}
-🆔 ${category.id}
-وضعیت: ${
-  category.active === false
-    ? "غیرفعال"
-    : "فعال"
-}
-
-`;
-      }
-    );
-
-    await sendMessage(
-      chatId,
-      output,
-      {
         inline_keyboard: [
+
           [
             {
-              text: "➕ افزودن دسته‌بندی",
+              text:
+                "👕 پوشاک",
+
               callback_data:
-                "category:add"
+                "category:👕 پوشاک"
+            },
+
+            {
+              text:
+                "👟 کفش",
+
+              callback_data:
+                "category:👟 کفش"
+            }
+          ],
+
+          [
+            {
+              text:
+                "👜 کیف",
+
+              callback_data:
+                "category:👜 کیف"
+            },
+
+            {
+              text:
+                "💄 لوازم آرایشی",
+
+              callback_data:
+                "category:💄 لوازم آرایشی"
+            }
+          ],
+
+          [
+            {
+              text:
+                "🏠 لوازم خانه",
+
+              callback_data:
+                "category:🏠 لوازم خانه"
+            },
+
+            {
+              text:
+                "📱 دیجیتال",
+
+              callback_data:
+                "category:📱 دیجیتال"
             }
           ]
+
         ]
       }
-    );
-
-    return;
-  }
-
-  // -------------------------
-  // INVENTORY
-  // -------------------------
-
-  if (
-    text === "📊 موجودی"
-  ) {
-    const products =
-      await getProductsFile();
-
-    const low =
-      products.data.filter(
-        p =>
-          number(
-            p.totalStock ??
-            p.stock
-          ) <= 5
-      );
-
-    if (!low.length) {
-      await sendMessage(
-        chatId,
-        "📊 موجودی وضعیت خوبی دارد.\n\nهیچ محصولی با موجودی ۵ یا کمتر وجود ندارد."
-      );
-      return;
     }
-
-    let output =
-      "📊 محصولات با موجودی کم:\n\n";
-
-    low.forEach(p => {
-      output +=
-`📦 ${p.name}
-موجودی: ${
-  number(
-    p.totalStock ??
-    p.stock
-  )
-}
-
-`;
-    });
-
-    await sendMessage(
-      chatId,
-      output
-    );
-
-    return;
-  }
-
-  // -------------------------
-  // ORDERS
-  // -------------------------
-
-  if (
-    text === "🧾 سفارش‌ها"
-  ) {
-    const file =
-      await getOrdersFile();
-
-    if (!file.data.length) {
-      await sendMessage(
-        chatId,
-        "🧾 هنوز سفارشی ثبت نشده است."
-      );
-      return;
-    }
-
-    let output =
-      "🧾 آخرین سفارش‌ها:\n\n";
-
-    file.data
-      .slice(-20)
-      .reverse()
-      .forEach(order => {
-        output +=
-`━━━━━━━━━━━━
-🆔 ${order.id}
-👤 ${order.customerName || "نامشخص"}
-💰 ${number(
-  order.total
-).toLocaleString("en-US")} ریال
-📌 وضعیت: ${
-  order.status || "new"
-}
-
-`;
-      });
-
-    await sendMessage(
-      chatId,
-      output
-    );
-
-    return;
-  }
-
-  // -------------------------
-  // CUSTOMERS
-  // -------------------------
-
-  if (
-    text === "👥 مشتریان"
-  ) {
-    const file =
-      await getCustomersFile();
-
-    await sendMessage(
-      chatId,
-      `👥 تعداد مشتریان ثبت‌شده:
-
-${file.data.length}`
-    );
-
-    return;
-  }
-
-  // -------------------------
-  // DISCOUNTS
-  // -------------------------
-
-  if (
-    text === "🏷 تخفیف‌ها"
-  ) {
-    const file =
-      await getDiscountsFile();
-
-    if (!file.data.length) {
-      await sendMessage(
-        chatId,
-        "🏷 هنوز تخفیفی ثبت نشده است."
-      );
-      return;
-    }
-
-    let output =
-      "🏷 تخفیف‌ها:\n\n";
-
-    file.data.forEach(
-      discount => {
-        output +=
-`🏷 ${discount.name || discount.code}
-مقدار: ${
-  discount.percent ||
-  discount.amount ||
-  0
-}
-وضعیت: ${
-  discount.active === false
-    ? "غیرفعال"
-    : "فعال"
-}
-
-`;
-      }
-    );
-
-    await sendMessage(
-      chatId,
-      output
-    );
-
-    return;
-  }
-
-  // -------------------------
-  // SETTINGS
-  // -------------------------
-
-  if (
-    text === "⚙️ تنظیمات"
-  ) {
-    const file =
-      await getSettingsFile();
-
-    await sendMessage(
-      chatId,
-`⚙️ تنظیمات فروشگاه
-
-🏪 نام:
-${file.data.shopName || "HamedShop"}
-
-💱 ارز:
-${file.data.currency || "IRR"}
-
-🚚 هزینه ارسال:
-${number(
-  file.data.shippingCost
-).toLocaleString("en-US")} ریال`
-    );
-
-    return;
-  }
-
-  // -------------------------
-  // SITE
-  // -------------------------
-
-  if (
-    text === "🌐 مشاهده سایت"
-  ) {
-    await sendMessage(
-      chatId,
-      `🌐 سایت فروشگاه:
-
-${SITE_URL}`
-    );
-
-    return;
-  }
-
-  // -------------------------
-  // PRODUCT WIZARD
-  // -------------------------
-
-  const session =
-    await getSession(chatId);
-
-  if (
-    session &&
-    session.type === "product"
-  ) {
-    await handleProductText(
-      chatId,
-      text,
-      session
-    );
-
-    return;
-  }
-
-  await sendMessage(
-    chatId,
-    "لطفاً یکی از گزینه‌های منو را انتخاب کنید.",
-    mainMenu()
   );
 }
 
+
 // ============================================================
-// API ACTIONS
+// PRODUCT CONFIRMATION
+// ============================================================
+
+async function sendProductConfirmation(
+  chatId,
+  product
+) {
+
+  await baleRequest(
+    "sendMessage",
+    {
+
+      chat_id:
+        chatId,
+
+      text:
+        `📦 اطلاعات محصول\n\n` +
+        `📌 نام: ${product.name}\n` +
+        `📂 دسته‌بندی: ${product.category}\n\n` +
+        `آیا محصول ثبت شود؟`,
+
+      reply_markup: {
+
+        inline_keyboard: [
+
+          [
+
+            {
+              text:
+                "✅ ثبت نهایی",
+
+              callback_data:
+                "confirm_product"
+            },
+
+            {
+              text:
+                "❌ لغو",
+
+              callback_data:
+                "cancel_product"
+            }
+
+          ]
+
+        ]
+      }
+    }
+  );
+}
+
+
+// ============================================================
+// ADMIN CHECK
+// ============================================================
+//
+// برای عملیات مدیریتی API می‌توانیم بعداً ADMIN_API_KEY
+// را در Netlify Environment Variables تعریف کنیم.
+//
+// عملیات عمومی مثل products.list و orders.create
+// نیاز به این کلید ندارند.
+//
+// ============================================================
+
+function isAdminRequest(event) {
+
+  const configuredKey =
+    process.env.ADMIN_API_KEY;
+
+  if (!configuredKey) {
+
+    return false;
+  }
+
+  const receivedKey =
+    event.headers?.["x-admin-key"] ||
+    event.headers?.["X-Admin-Key"];
+
+  return (
+    receivedKey &&
+    receivedKey === configuredKey
+  );
+}
+
+
+// ============================================================
+// PUBLIC API ACTIONS
 // ============================================================
 
 async function handleApiAction(
   event,
   body
 ) {
-  const method =
-    event.httpMethod || "GET";
-
-  const query =
-    event.queryStringParameters ||
-    {};
 
   const action =
     body.action ||
-    query.action;
+    event.queryStringParameters?.action ||
+    "";
 
-  if (!action) {
-    return jsonResponse(
-      400,
-      {
-        ok: false,
-        error:
-          "action is required"
-      }
-    );
-  }
 
-  // -------------------------
+  // ==========================================================
   // PRODUCTS LIST
-  // -------------------------
+  // ==========================================================
 
   if (
     action === "products.list"
   ) {
+
     const file =
       await getProductsFile();
+
+    const products =
+      file.data
+        .map(normalizeProduct)
+        .filter(
+          product =>
+            product.active !== false
+        );
 
     return jsonResponse(
       200,
       {
         ok: true,
-        products:
-          file.data.map(
-            normalizeProduct
-          )
+
+        action,
+
+        products
       }
     );
   }
 
-  // -------------------------
+
+  // ==========================================================
   // PRODUCT GET
-  // -------------------------
+  // ==========================================================
 
   if (
     action === "products.get"
   ) {
-    const id =
-      body.productId ||
-      query.productId;
 
-    const file =
-      await getProductsFile();
+    const productId =
+      body.productId ||
+      event.queryStringParameters?.productId;
+
+    if (!productId) {
+
+      return jsonResponse(
+        400,
+        {
+          ok: false,
+          error:
+            "productId is required"
+        }
+      );
+    }
 
     const product =
-      file.data.find(
-        p => p.id === id
+      await getProduct(productId);
+
+    if (!product) {
+
+      return jsonResponse(
+        404,
+        {
+          ok: false,
+          error:
+            "Product not found"
+        }
       );
+    }
 
     return jsonResponse(
-      product ? 200 : 404,
+      200,
       {
-        ok: !!product,
-        product:
-          product
-            ? normalizeProduct(product)
-            : null
+        ok: true,
+        product
       }
     );
   }
 
-  // -------------------------
-  // CATEGORIES
-  // -------------------------
+
+  // ==========================================================
+  // CATEGORIES LIST
+  // ==========================================================
 
   if (
     action === "categories.list"
   ) {
+
     const file =
       await getCategoriesFile();
 
@@ -2382,172 +1645,34 @@ async function handleApiAction(
       200,
       {
         ok: true,
+
         categories:
-          file.data
+          Array.isArray(file.data)
+            ? file.data.filter(
+                item =>
+                  item.active !== false
+              )
+            : []
       }
     );
   }
 
-  // -------------------------
-  // INVENTORY
-  // -------------------------
 
-  if (
-    action === "inventory.list"
-  ) {
-    const file =
-      await getInventoryFile();
-
-    return jsonResponse(
-      200,
-      {
-        ok: true,
-        inventory:
-          file.data
-      }
-    );
-  }
-
-  // -------------------------
-  // ORDERS
-  // -------------------------
-
-  if (
-    action === "orders.list"
-  ) {
-    const file =
-      await getOrdersFile();
-
-    return jsonResponse(
-      200,
-      {
-        ok: true,
-        orders:
-          file.data
-      }
-    );
-  }
-
-  // -------------------------
-  // ORDERS GET
-  // -------------------------
-
-  if (
-    action === "orders.get"
-  ) {
-    const id =
-      body.orderId ||
-      query.orderId;
-
-    const file =
-      await getOrdersFile();
-
-    const order =
-      file.data.find(
-        o => o.id === id
-      );
-
-    return jsonResponse(
-      order ? 200 : 404,
-      {
-        ok: !!order,
-        order:
-          order || null
-      }
-    );
-  }
-
-  // -------------------------
-  // CUSTOMERS
-  // -------------------------
-
-  if (
-    action === "customers.list"
-  ) {
-    const file =
-      await getCustomersFile();
-
-    return jsonResponse(
-      200,
-      {
-        ok: true,
-        customers:
-          file.data
-      }
-    );
-  }
-
-  // -------------------------
-  // DISCOUNTS
-  // -------------------------
-
-  if (
-    action === "discounts.list"
-  ) {
-    const file =
-      await getDiscountsFile();
-
-    return jsonResponse(
-      200,
-      {
-        ok: true,
-        discounts:
-          file.data
-      }
-    );
-  }
-
-  // -------------------------
-  // SETTINGS
-  // -------------------------
-
-  if (
-    action === "settings.get"
-  ) {
-    const file =
-      await getSettingsFile();
-
-    return jsonResponse(
-      200,
-      {
-        ok: true,
-        settings:
-          file.data
-      }
-    );
-  }
-
-  // -------------------------
-  // VARIANTS
-  // -------------------------
+  // ==========================================================
+  // VARIANTS LIST
+  // ==========================================================
 
   if (
     action === "variants.list"
   ) {
-    const products =
+
+    const productsFile =
       await getProductsFile();
 
-    const variants = [];
-
-    products.data.forEach(
-      product => {
-        if (
-          Array.isArray(
-            product.variants
-          )
-        ) {
-          product.variants.forEach(
-            variant => {
-              variants.push({
-                ...variant,
-                productId:
-                  product.id
-              });
-            }
-          );
-        }
-      }
-    );
+    const variants =
+      await syncVariantsFromProducts(
+        productsFile.data
+      );
 
     return jsonResponse(
       200,
@@ -2558,144 +1683,154 @@ async function handleApiAction(
     );
   }
 
-  return jsonResponse(
-    404,
-    {
-      ok: false,
-      error:
-        "Unknown action"
-    }
-  );
-}
 
-// ============================================================
-// MAIN HANDLER
-// ============================================================
+  // ==========================================================
+  // DISCOUNTS VALIDATE
+  // ==========================================================
 
-export default async function handler(
-  event
-) {
-  try {
+  if (
+    action === "discounts.validate"
+  ) {
 
-    // -------------------------
-    // OPTIONS
-    // -------------------------
+    const code =
+      body.code;
 
-    if (
-      event.httpMethod ===
-      "OPTIONS"
-    ) {
-      return jsonResponse(
-        200,
-        {
-          ok: true
-        }
+    const subtotal =
+      positiveNumber(
+        body.subtotal || 0,
+        "subtotal"
       );
-    }
 
-    // -------------------------
-    // GET
-    // -------------------------
+    const result =
+      await calculateDiscount(
+        code,
+        subtotal
+      );
 
-    if (
-      event.httpMethod ===
-      "GET"
-    ) {
-      const query =
-        event.queryStringParameters ||
-        {};
+    return jsonResponse(
+      200,
+      {
+        ok: true,
 
-      if (query.action) {
-        return handleApiAction(
-          event,
-          {}
-        );
+        code,
+
+        discount:
+          result.discount,
+
+        amount:
+          result.amount,
+
+        finalAmount:
+          subtotal -
+          result.amount
       }
+    );
+  }
+
+
+  // ==========================================================
+  // SETTINGS
+  // ==========================================================
+
+  if (
+    action === "settings.get"
+  ) {
+
+    const file =
+      await getSettingsFile();
+
+    return jsonResponse(
+      200,
+      {
+        ok: true,
+
+        settings:
+          file.data
+      }
+    );
+  }
+
+
+  // ==========================================================
+  // INVENTORY
+  // ==========================================================
+
+  if (
+    action === "inventory.list"
+  ) {
+
+    const inventory =
+      await syncInventory();
+
+    return jsonResponse(
+      200,
+      {
+        ok: true,
+
+        inventory
+      }
+    );
+  }
+
+
+  // ==========================================================
+  // ORDERS LIST
+  // ==========================================================
+
+  if (
+    action === "orders.list"
+  ) {
+
+    const file =
+      await getOrdersFile();
+
+    return jsonResponse(
+      200,
+      {
+        ok: true,
+
+        orders:
+          file.data
+      }
+    );
+  }
+
+
+  // ==========================================================
+  // ORDER GET
+  // ==========================================================
+
+  if (
+    action === "orders.get"
+  ) {
+
+    const orderId =
+      body.orderId ||
+      event.queryStringParameters?.orderId;
+
+    if (!orderId) {
 
       return jsonResponse(
-        200,
-        {
-          ok: true,
-          service:
-            "HamedShop API",
-          version:
-            API_VERSION,
-          status:
-            "running",
-          bale:
-            !!process.env.BALE_BOT_TOKEN,
-          github:
-            !!process.env.GITHUB_TOKEN,
-          site:
-            SITE_URL,
-          timestamp:
-            nowISO()
-        }
-      );
-    }
-
-    // -------------------------
-    // POST
-    // -------------------------
-
-    if (
-      event.httpMethod !==
-      "POST"
-    ) {
-      return jsonResponse(
-        405,
+        400,
         {
           ok: false,
           error:
-            "Method not allowed"
+            "orderId is required"
         }
       );
     }
 
-    const body =
-      parseBody(event);
+    const order =
+      await getOrder(orderId);
 
-    // -------------------------
-    // API ACTION
-    // -------------------------
-
-    if (body.action) {
-      return handleApiAction(
-        event,
-        body
-      );
-    }
-
-    // -------------------------
-    // BALE UPDATE
-    // -------------------------
-
-    if (
-      body.callback_query
-    ) {
-      await handleCallbackQuery(
-        body.callback_query
-      );
+    if (!order) {
 
       return jsonResponse(
-        200,
+        404,
         {
-          ok: true
-        }
-      );
-    }
-
-    if (
-      body.message
-    ) {
-      await handleMessage(
-        body.message
-      );
-
-      return jsonResponse(
-        200,
-        {
-          ok: true
+          ok: false,
+          error:
+            "Order not found"
         }
       );
     }
@@ -2704,15 +1839,771 @@ export default async function handler(
       200,
       {
         ok: true,
-        message:
-          "Webhook received"
+        order
+      }
+    );
+  }
+
+
+  // ==========================================================
+  // ORDER CREATE
+  // ==========================================================
+
+  if (
+    action === "orders.create"
+  ) {
+
+    return createOrder(
+      body
+    );
+  }
+
+
+  // ==========================================================
+  // PRODUCT CREATE
+  // ==========================================================
+
+  if (
+    action === "products.create"
+  ) {
+
+    if (!isAdminRequest(event)) {
+
+      return jsonResponse(
+        403,
+        {
+          ok: false,
+          error:
+            "Admin authorization required"
+        }
+      );
+    }
+
+    const product =
+      await createProduct(
+        body.product || body
+      );
+
+    return jsonResponse(
+      201,
+      {
+        ok: true,
+        product
+      }
+    );
+  }
+
+
+  // ==========================================================
+  // PRODUCT UPDATE
+  // ==========================================================
+
+  if (
+    action === "products.update"
+  ) {
+
+    if (!isAdminRequest(event)) {
+
+      return jsonResponse(
+        403,
+        {
+          ok: false,
+          error:
+            "Admin authorization required"
+        }
+      );
+    }
+
+    const product =
+      await updateProduct(
+        body.productId,
+        body.changes ||
+          {}
+      );
+
+    return jsonResponse(
+      200,
+      {
+        ok: true,
+        product
+      }
+    );
+  }
+
+
+  // ==========================================================
+  // PRODUCT DELETE
+  // ==========================================================
+
+  if (
+    action === "products.delete"
+  ) {
+
+    if (!isAdminRequest(event)) {
+
+      return jsonResponse(
+        403,
+        {
+          ok: false,
+          error:
+            "Admin authorization required"
+        }
+      );
+    }
+
+    const product =
+      await deleteProduct(
+        body.productId
+      );
+
+    return jsonResponse(
+      200,
+      {
+        ok: true,
+        deleted:
+          product
+      }
+    );
+  }
+
+
+  // ==========================================================
+  // CATEGORY CREATE
+  // ==========================================================
+
+  if (
+    action === "categories.create"
+  ) {
+
+    if (!isAdminRequest(event)) {
+
+      return jsonResponse(
+        403,
+        {
+          ok: false,
+          error:
+            "Admin authorization required"
+        }
+      );
+    }
+
+    const category =
+      await createCategory(
+        body.category ||
+        body
+      );
+
+    return jsonResponse(
+      201,
+      {
+        ok: true,
+        category
+      }
+    );
+  }
+
+
+  // ==========================================================
+  // UNKNOWN ACTION
+  // ==========================================================
+
+  return jsonResponse(
+    400,
+    {
+      ok: false,
+
+      error:
+        "Unknown API action",
+
+      action
+    }
+  );
+}
+
+
+// ============================================================
+// CREATE ORDER
+// ============================================================
+
+async function createOrder(
+  body
+) {
+
+  const itemsInput =
+    Array.isArray(body.items)
+      ? body.items
+      : [];
+
+  if (
+    itemsInput.length === 0
+  ) {
+
+    return jsonResponse(
+      400,
+      {
+        ok: false,
+
+        error:
+          "Order must contain at least one item"
+      }
+    );
+  }
+
+
+  const productsFile =
+    await getProductsFile();
+
+
+  const products =
+    productsFile.data
+      .map(normalizeProduct);
+
+
+  const orderItems = [];
+
+  let subtotal = 0;
+
+
+  // ----------------------------------------------------------
+  // Validate products and stock
+  // ----------------------------------------------------------
+
+  for (
+    const inputItem of itemsInput
+  ) {
+
+    const product =
+      products.find(
+        item =>
+          item.id ===
+          inputItem.productId
+      );
+
+    if (!product) {
+
+      return jsonResponse(
+        400,
+        {
+          ok: false,
+
+          error:
+            `Product not found: ${inputItem.productId}`
+        }
+      );
+    }
+
+
+    const quantity =
+      Math.floor(
+        safeNumber(
+          inputItem.quantity,
+          0
+        )
+      );
+
+
+    if (
+      quantity <= 0
+    ) {
+
+      return jsonResponse(
+        400,
+        {
+          ok: false,
+
+          error:
+            "Invalid quantity"
+        }
+      );
+    }
+
+
+    let unitPrice =
+      safeNumber(
+        product.finalPrice ??
+        product.price,
+        0
+      );
+
+
+    let variant =
+      null;
+
+
+    // --------------------------------------------------------
+    // Variant
+    // --------------------------------------------------------
+
+    if (
+      inputItem.variantId &&
+      Array.isArray(
+        product.variants
+      )
+    ) {
+
+      variant =
+        product.variants.find(
+          item =>
+            item.id ===
+            inputItem.variantId
+        );
+
+      if (!variant) {
+
+        return jsonResponse(
+          400,
+          {
+            ok: false,
+
+            error:
+              `Variant not found: ${inputItem.variantId}`
+          }
+        );
+      }
+
+
+      unitPrice =
+        safeNumber(
+          variant.price,
+          unitPrice
+        );
+
+
+      const variantStock =
+        safeNumber(
+          variant.stock,
+          0
+        );
+
+
+      if (
+        variantStock <
+        quantity
+      ) {
+
+        return jsonResponse(
+          400,
+          {
+            ok: false,
+
+            error:
+              `موجودی ${product.name} کافی نیست`
+          }
+        );
+      }
+
+    } else {
+
+      const productStock =
+        safeNumber(
+          product.totalStock ??
+          product.stock,
+          0
+        );
+
+
+      if (
+        productStock <
+        quantity
+      ) {
+
+        return jsonResponse(
+          400,
+          {
+            ok: false,
+
+            error:
+              `موجودی ${product.name} کافی نیست`
+          }
+        );
+      }
+    }
+
+
+    const total =
+      unitPrice *
+      quantity;
+
+
+    subtotal +=
+      total;
+
+
+    orderItems.push({
+
+      productId:
+        product.id,
+
+      variantId:
+        variant
+          ? variant.id
+          : null,
+
+      name:
+        product.name,
+
+      variantName:
+        variant
+          ? (
+              variant.name ||
+              ""
+            )
+          : "",
+
+      quantity,
+
+      unitPrice,
+
+      discount:
+        0,
+
+      total
+    });
+  }
+
+
+  // ----------------------------------------------------------
+  // Discount
+  // ----------------------------------------------------------
+
+  let discountAmount = 0;
+  let discountData = null;
+
+
+  if (
+    body.discountCode
+  ) {
+
+    try {
+
+      const discountResult =
+        await calculateDiscount(
+          body.discountCode,
+          subtotal
+        );
+
+      discountAmount =
+        discountResult.amount;
+
+      discountData =
+        discountResult.discount;
+
+    } catch (error) {
+
+      return jsonResponse(
+        400,
+        {
+          ok: false,
+
+          error:
+            error.message
+        }
+      );
+    }
+  }
+
+
+  // ----------------------------------------------------------
+  // Shipping
+  // ----------------------------------------------------------
+
+  const settingsFile =
+    await getSettingsFile();
+
+  const settings =
+    settingsFile.data || {};
+
+
+  let shipping =
+    safeNumber(
+      body.shipping,
+      safeNumber(
+        settings.shippingCost,
+        0
+      )
+    );
+
+
+  const freeShippingThreshold =
+    safeNumber(
+      settings.freeShippingThreshold,
+      0
+    );
+
+
+  if (
+    freeShippingThreshold > 0 &&
+    subtotal >=
+      freeShippingThreshold
+  ) {
+
+    shipping = 0;
+  }
+
+
+  const total =
+    Math.max(
+      subtotal -
+      discountAmount +
+      shipping,
+      0
+    );
+
+
+  // ----------------------------------------------------------
+  // Customer
+  // ----------------------------------------------------------
+
+  let customer = null;
+
+
+  if (
+    body.customer &&
+    typeof body.customer === "object"
+  ) {
+
+    customer =
+      await findOrCreateCustomer(
+        body.customer
+      );
+  }
+
+
+  // ----------------------------------------------------------
+  // Order
+  // ----------------------------------------------------------
+
+  const order = {
+
+    id:
+      generateId("ORD"),
+
+    customerId:
+      customer
+        ? customer.id
+        : null,
+
+    customer:
+      customer ||
+      body.customer ||
+      null,
+
+    items:
+      orderItems,
+
+    subtotal,
+
+    discount:
+      discountAmount,
+
+    discountCode:
+      discountData
+        ? discountData.code
+        : null,
+
+    shipping,
+
+    total,
+
+    currency:
+      settings.currency ||
+      "IRR",
+
+    notes:
+      body.notes ||
+      "",
+
+    status:
+      "pending",
+
+    paymentStatus:
+      "unpaid",
+
+    createdAt:
+      nowISO(),
+
+    updatedAt:
+      nowISO()
+  };
+
+
+  // ----------------------------------------------------------
+  // Update stock
+  // ----------------------------------------------------------
+
+  const originalProducts =
+    JSON.parse(
+      JSON.stringify(
+        productsFile.data
+      )
+    );
+
+
+  for (
+    const item of orderItems
+  ) {
+
+    const product =
+      productsFile.data.find(
+        p =>
+          p.id ===
+          item.productId
+      );
+
+    if (!product) {
+      continue;
+    }
+
+
+    if (
+      item.variantId &&
+      Array.isArray(
+        product.variants
+      )
+    ) {
+
+      const variant =
+        product.variants.find(
+          v =>
+            v.id ===
+            item.variantId
+        );
+
+      if (variant) {
+
+        variant.stock =
+          Math.max(
+            safeNumber(
+              variant.stock,
+              0
+            ) -
+            item.quantity,
+            0
+          );
+      }
+
+      product.totalStock =
+        product.variants.reduce(
+          (
+            sum,
+            v
+          ) =>
+            sum +
+            safeNumber(
+              v.stock,
+              0
+            ),
+          0
+        );
+
+      product.stock =
+        product.totalStock;
+
+    } else {
+
+      const currentStock =
+        safeNumber(
+          product.totalStock ??
+          product.stock,
+          0
+        );
+
+      product.totalStock =
+        Math.max(
+          currentStock -
+          item.quantity,
+          0
+        );
+
+      product.stock =
+        product.totalStock;
+    }
+
+
+    product.updatedAt =
+      nowISO();
+  }
+
+
+  // ----------------------------------------------------------
+  // Save product stock
+  // ----------------------------------------------------------
+
+  try {
+
+    const productsWrite =
+      await saveProductsFile(
+        productsFile.data,
+        productsFile.sha,
+        `Create order ${order.id} - update inventory`
+      );
+
+
+    // --------------------------------------------------------
+    // Save order
+    // --------------------------------------------------------
+
+    const ordersFile =
+      await getOrdersFile();
+
+
+    ordersFile.data.push(
+      order
+    );
+
+
+    try {
+
+      await writeJsonFile(
+        "data/orders.json",
+        ordersFile.data,
+        `Create order ${order.id}`,
+        ordersFile.sha
+      );
+
+    } catch (orderError) {
+
+      // ------------------------------------------------------
+      // ROLLBACK STOCK
+      // ------------------------------------------------------
+
+      try {
+
+        const latestProducts =
+          await getProductsFile();
+
+        await saveProductsFile(
+          originalProducts,
+          latestProducts.sha,
+          `Rollback inventory for failed order ${order.id}`
+        );
+
+      } catch (rollbackError) {
+
+        console.error(
+          "ROLLBACK ERROR:",
+          rollbackError
+        );
+      }
+
+
+      throw orderError;
+    }
+
+
+    return jsonResponse(
+      201,
+      {
+        ok: true,
+
+        order
       }
     );
 
   } catch (error) {
 
     console.error(
-      "HamedShop API ERROR:",
+      "ORDER CREATE ERROR:",
       error
     );
 
@@ -2720,10 +2611,1088 @@ export default async function handler(
       500,
       {
         ok: false,
+
         error:
-          error.message ||
-          "Internal server error"
+          error.message
       }
     );
   }
 }
+
+
+// ============================================================
+// BALE CALLBACK HANDLER
+// ============================================================
+
+async function handleCallbackQuery(
+  callback
+) {
+
+  const chatId =
+    callback.message?.chat?.id;
+
+  const data =
+    callback.data || "";
+
+  const userId =
+    callback.from?.id ||
+    chatId;
+
+
+  if (!chatId) {
+
+    return {
+      statusCode: 200,
+      body: "ok"
+    };
+  }
+
+
+  // ==========================================================
+  // CATEGORY BY ID
+  // ==========================================================
+
+  if (
+    data.startsWith(
+      "category_id:"
+    )
+  ) {
+
+    const categoryId =
+      data.replace(
+        "category_id:",
+        ""
+      );
+
+
+    const categoriesFile =
+      await getCategoriesFile();
+
+
+    const category =
+      categoriesFile.data.find(
+        item =>
+          item.id ===
+          categoryId
+      );
+
+
+    const product =
+      pendingProducts.get(
+        userId
+      );
+
+
+    if (!product) {
+
+      await baleRequest(
+        "sendMessage",
+        {
+          chat_id:
+            chatId,
+
+          text:
+            "❌ اطلاعات محصول پیدا نشد.\n" +
+            "لطفاً دوباره محصول را اضافه کنید."
+        }
+      );
+
+      return {
+        statusCode: 200,
+        body: "ok"
+      };
+    }
+
+
+    product.category =
+      category
+        ? (
+            `${category.icon || ""} ${category.name}`
+              .trim()
+          )
+        : categoryId;
+
+
+    product.categoryId =
+      categoryId;
+
+
+    pendingProducts.set(
+      userId,
+      product
+    );
+
+
+    await baleRequest(
+      "answerCallbackQuery",
+      {
+        callback_query_id:
+          callback.id
+      }
+    );
+
+
+    await sendProductConfirmation(
+      chatId,
+      product
+    );
+
+
+    return {
+      statusCode: 200,
+      body: "ok"
+    };
+  }
+
+
+  // ==========================================================
+  // OLD CATEGORY CALLBACK
+  // ==========================================================
+
+  if (
+    data.startsWith(
+      "category:"
+    )
+  ) {
+
+    const category =
+      data.replace(
+        "category:",
+        ""
+      );
+
+
+    const product =
+      pendingProducts.get(
+        userId
+      );
+
+
+    if (!product) {
+
+      await baleRequest(
+        "sendMessage",
+        {
+
+          chat_id:
+            chatId,
+
+          text:
+            "❌ اطلاعات محصول پیدا نشد.\n" +
+            "لطفاً دوباره محصول را اضافه کنید."
+        }
+      );
+
+      return {
+        statusCode: 200,
+        body: "ok"
+      };
+    }
+
+
+    product.category =
+      category;
+
+
+    product.categoryId =
+      null;
+
+
+    pendingProducts.set(
+      userId,
+      product
+    );
+
+
+    await baleRequest(
+      "answerCallbackQuery",
+      {
+        callback_query_id:
+          callback.id
+      }
+    );
+
+
+    await sendProductConfirmation(
+      chatId,
+      product
+    );
+
+
+    return {
+      statusCode: 200,
+      body: "ok"
+    };
+  }
+
+
+  // ==========================================================
+  // CONFIRM PRODUCT
+  // ==========================================================
+
+  if (
+    data ===
+    "confirm_product"
+  ) {
+
+    const product =
+      pendingProducts.get(
+        userId
+      );
+
+
+    if (!product) {
+
+      await baleRequest(
+        "sendMessage",
+        {
+
+          chat_id:
+            chatId,
+
+          text:
+            "❌ اطلاعات محصول پیدا نشد.\n" +
+            "لطفاً دوباره محصول را اضافه کنید."
+        }
+      );
+
+      return {
+        statusCode: 200,
+        body: "ok"
+      };
+    }
+
+
+    await baleRequest(
+      "answerCallbackQuery",
+      {
+
+        callback_query_id:
+          callback.id,
+
+        text:
+          "در حال ثبت محصول..."
+      }
+    );
+
+
+    try {
+
+      // ------------------------------------------------------
+      // Generate ID
+      // ------------------------------------------------------
+
+      const productId =
+        generateProductId();
+
+
+      // ------------------------------------------------------
+      // Upload image
+      // ------------------------------------------------------
+
+      const image =
+        await uploadImageToGitHub(
+          product.photoId,
+          productId
+        );
+
+
+      // ------------------------------------------------------
+      // Rich product
+      // ------------------------------------------------------
+
+      const savedProduct =
+        normalizeProduct({
+
+          id:
+            productId,
+
+          name:
+            product.name,
+
+          category:
+            product.category,
+
+          categoryId:
+            product.categoryId ||
+            null,
+
+          description:
+            "",
+
+          image:
+            image.path,
+
+          images:
+            [
+              image.path
+            ],
+
+          price:
+            safeNumber(
+              product.price,
+              0
+            ),
+
+          compareAtPrice:
+            safeNumber(
+              product.compareAtPrice,
+              safeNumber(
+                product.price,
+                0
+              )
+            ),
+
+          discountPercent:
+            0,
+
+          discountAmount:
+            0,
+
+          finalPrice:
+            safeNumber(
+              product.price,
+              0
+            ),
+
+          currency:
+            "IRR",
+
+          variants:
+            Array.isArray(
+              product.variants
+            )
+              ? product.variants
+              : [],
+
+          attributes:
+            product.attributes ||
+            {},
+
+          stock:
+            safeNumber(
+              product.stock,
+              0
+            ),
+
+          totalStock:
+            safeNumber(
+              product.stock,
+              0
+            ),
+
+          active:
+            true,
+
+          featured:
+            false,
+
+          tags:
+            [],
+
+          createdAt:
+            nowISO(),
+
+          updatedAt:
+            nowISO()
+        });
+
+
+      // ------------------------------------------------------
+      // Save products
+      // ------------------------------------------------------
+
+      const productsFile =
+        await getProductsFile();
+
+
+      productsFile.data.push(
+        savedProduct
+      );
+
+
+      await saveProductsFile(
+        productsFile.data,
+        productsFile.sha,
+        `Add product ${savedProduct.id}`
+      );
+
+
+      // ------------------------------------------------------
+      // Clean temporary product
+      // ------------------------------------------------------
+
+      pendingProducts.delete(
+        userId
+      );
+
+
+      // ------------------------------------------------------
+      // Success
+      // ------------------------------------------------------
+
+      await baleRequest(
+        "sendMessage",
+        {
+
+          chat_id:
+            chatId,
+
+          text:
+            `✅ محصول با موفقیت ثبت شد.\n\n` +
+
+            `📌 نام: ${savedProduct.name}\n` +
+
+            `📂 دسته‌بندی: ${savedProduct.category}\n` +
+
+            `💰 قیمت: ${savedProduct.price}\n` +
+
+            `📦 موجودی: ${savedProduct.totalStock}\n` +
+
+            `🆔 شناسه: ${savedProduct.id}`
+        }
+      );
+
+    } catch (error) {
+
+      console.error(
+        "PRODUCT SAVE ERROR:",
+        error
+      );
+
+
+      await baleRequest(
+        "sendMessage",
+        {
+
+          chat_id:
+            chatId,
+
+          text:
+            "❌ هنگام ثبت محصول خطایی رخ داد.\n\n" +
+            `جزئیات: ${error.message}`
+        }
+      );
+    }
+
+
+    return {
+      statusCode: 200,
+      body: "ok"
+    };
+  }
+
+
+  // ==========================================================
+  // CANCEL PRODUCT
+  // ==========================================================
+
+  if (
+    data ===
+    "cancel_product"
+  ) {
+
+    pendingProducts.delete(
+      userId
+    );
+
+
+    await baleRequest(
+      "answerCallbackQuery",
+      {
+
+        callback_query_id:
+          callback.id,
+
+        text:
+          "لغو شد"
+      }
+    );
+
+
+    await baleRequest(
+      "sendMessage",
+      {
+
+        chat_id:
+          chatId,
+
+        text:
+          "❌ ثبت محصول لغو شد."
+      }
+    );
+
+
+    return {
+      statusCode: 200,
+      body: "ok"
+    };
+  }
+
+
+  return {
+    statusCode: 200,
+    body: "ok"
+  };
+}
+
+
+// ============================================================
+// BALE MESSAGE HANDLER
+// ============================================================
+
+async function handleMessage(
+  message
+) {
+
+  const chatId =
+    message.chat?.id;
+
+  const userId =
+    message.from?.id ||
+    chatId;
+
+
+  if (!chatId) {
+
+    return {
+      statusCode: 200,
+      body: "ok"
+    };
+  }
+
+
+  const text =
+    message.text || "";
+
+
+  // ==========================================================
+  // START
+  // ==========================================================
+
+  if (
+    text === "/start"
+  ) {
+
+    await sendMainMenu(
+      chatId
+    );
+
+    return {
+      statusCode: 200,
+      body: "ok"
+    };
+  }
+
+
+  // ==========================================================
+  // ADD PRODUCT
+  // ==========================================================
+
+  if (
+    text ===
+    "➕ افزودن محصول"
+  ) {
+
+    await baleRequest(
+      "sendMessage",
+      {
+
+        chat_id:
+          chatId,
+
+        text:
+          "📷 لطفاً عکس محصول را ارسال کنید و نام محصول را در کپشن عکس بنویسید."
+      }
+    );
+
+
+    return {
+      statusCode: 200,
+      body: "ok"
+    };
+  }
+
+
+  // ==========================================================
+  // VIEW PRODUCTS
+  // ==========================================================
+
+  if (
+    text ===
+    "📦 مشاهده محصولات"
+  ) {
+
+    try {
+
+      const file =
+        await getProductsFile();
+
+
+      const products =
+        file.data;
+
+
+      if (
+        products.length === 0
+      ) {
+
+        await baleRequest(
+          "sendMessage",
+          {
+
+            chat_id:
+              chatId,
+
+            text:
+              "📦 هنوز محصولی ثبت نشده است."
+          }
+        );
+
+      } else {
+
+        const visible =
+          products
+            .slice(-20)
+            .reverse();
+
+
+        let response =
+          "📦 آخرین محصولات:\n\n";
+
+
+        for (
+          const product of visible
+        ) {
+
+          response +=
+            `🔹 ${product.name}\n` +
+            `📂 ${product.category || "-"}\n` +
+            `🆔 ${product.id}\n\n`;
+        }
+
+
+        await baleRequest(
+          "sendMessage",
+          {
+
+            chat_id:
+              chatId,
+
+            text:
+              response
+          }
+        );
+      }
+
+    } catch (error) {
+
+      console.error(
+        "VIEW PRODUCTS ERROR:",
+        error
+      );
+
+
+      await baleRequest(
+        "sendMessage",
+        {
+
+          chat_id:
+            chatId,
+
+          text:
+            "❌ خطا در دریافت محصولات."
+        }
+      );
+    }
+
+
+    return {
+      statusCode: 200,
+      body: "ok"
+    };
+  }
+
+
+  // ==========================================================
+  // WEBSITE
+  // ==========================================================
+
+  if (
+    text ===
+    "🌐 مشاهده سایت"
+  ) {
+
+    await baleRequest(
+      "sendMessage",
+      {
+
+        chat_id:
+          chatId,
+
+        text:
+          `🌐 سایت HamedShop:\n\n${SITE_URL}`
+      }
+    );
+
+
+    return {
+      statusCode: 200,
+      body: "ok"
+    };
+  }
+
+
+  // ==========================================================
+  // PRODUCT PHOTO
+  // ==========================================================
+
+  if (
+    message.photo &&
+    message.photo.length > 0
+  ) {
+
+    const photos =
+      message.photo;
+
+
+    const largestPhoto =
+      photos[
+        photos.length - 1
+      ];
+
+
+    const photoId =
+      largestPhoto.file_id;
+
+
+    const caption =
+      (
+        message.caption ||
+        ""
+      ).trim();
+
+
+    if (!caption) {
+
+      await baleRequest(
+        "sendMessage",
+        {
+
+          chat_id:
+            chatId,
+
+          text:
+            "❌ لطفاً نام محصول را در کپشن عکس بنویسید."
+        }
+      );
+
+
+      return {
+        statusCode: 200,
+        body: "ok"
+      };
+    }
+
+
+    const product = {
+
+      name:
+        caption,
+
+      photoId:
+        photoId,
+
+      category:
+        null,
+
+      categoryId:
+        null,
+
+      price:
+        0,
+
+      compareAtPrice:
+        0,
+
+      stock:
+        0,
+
+      variants:
+        [],
+
+      attributes:
+        {}
+    };
+
+
+    pendingProducts.set(
+      userId,
+      product
+    );
+
+
+    await sendCategoryMenu(
+      chatId
+    );
+
+
+    return {
+      statusCode: 200,
+      body: "ok"
+    };
+  }
+
+
+  // ==========================================================
+  // UNKNOWN MESSAGE
+  // ==========================================================
+
+  await baleRequest(
+    "sendMessage",
+    {
+
+      chat_id:
+        chatId,
+
+      text:
+        "لطفاً از منوی اصلی یکی از گزینه‌ها را انتخاب کنید."
+    }
+  );
+
+
+  return {
+    statusCode: 200,
+    body: "ok"
+  };
+}
+
+
+// ============================================================
+// MAIN HANDLER
+// ============================================================
+
+exports.handler = async (
+  event
+) => {
+
+  try {
+
+    // ========================================================
+    // CORS PREFLIGHT
+    // ========================================================
+
+    if (
+      event.httpMethod ===
+      "OPTIONS"
+    ) {
+
+      return {
+        statusCode: 204,
+
+        headers: {
+
+          "Access-Control-Allow-Origin":
+            "*",
+
+          "Access-Control-Allow-Headers":
+            "Content-Type, X-Admin-Key",
+
+          "Access-Control-Allow-Methods":
+            "GET, POST, PUT, DELETE, OPTIONS"
+        },
+
+        body: ""
+      };
+    }
+
+
+    // ========================================================
+    // GET
+    // ========================================================
+
+    if (
+      event.httpMethod ===
+      "GET"
+    ) {
+
+      const action =
+        event.queryStringParameters?.action;
+
+
+      // ------------------------------------------------------
+      // API status
+      // ------------------------------------------------------
+
+      if (!action) {
+
+        return jsonResponse(
+          200,
+          {
+
+            ok: true,
+
+            service:
+              "HamedShop API",
+
+            version:
+              API_VERSION,
+
+            status:
+              "running",
+
+            bale:
+              Boolean(
+                process.env.BALE_BOT_TOKEN
+              ),
+
+            github:
+              Boolean(
+                process.env.GITHUB_TOKEN
+              ),
+
+            site:
+              SITE_URL,
+
+            timestamp:
+              nowISO()
+          }
+        );
+      }
+
+
+      return handleApiAction(
+        event,
+        {}
+      );
+    }
+
+
+    // ========================================================
+    // ONLY POST AFTER THIS
+    // ========================================================
+
+    if (
+      event.httpMethod !==
+      "POST"
+    ) {
+
+      return jsonResponse(
+        405,
+        {
+
+          ok: false,
+
+          error:
+            "Method not allowed"
+        }
+      );
+    }
+
+
+    // ========================================================
+    // PARSE BODY
+    // ========================================================
+
+    const body =
+      parseJsonBody(
+        event
+      );
+
+
+    // ========================================================
+    // API ACTION
+    // ========================================================
+    //
+    // اگر body.action وجود داشته باشد، درخواست API است.
+    //
+    // در غیر این صورت update بله است.
+    //
+    // ========================================================
+
+    if (
+      body &&
+      body.action
+    ) {
+
+      return handleApiAction(
+        event,
+        body
+      );
+    }
+
+
+    // ========================================================
+    // BALE UPDATE
+    // ========================================================
+
+    const update =
+      body;
+
+
+    console.log(
+      "BALE UPDATE:",
+      JSON.stringify(update)
+    );
+
+
+    // ========================================================
+    // CALLBACK QUERY
+    // ========================================================
+
+    if (
+      update.callback_query
+    ) {
+
+      return handleCallbackQuery(
+        update.callback_query
+      );
+    }
+
+
+    // ========================================================
+    // MESSAGE
+    // ========================================================
+
+    if (
+      update.message
+    ) {
+
+      return handleMessage(
+        update.message
+      );
+    }
+
+
+    // ========================================================
+    // OTHER BALE UPDATES
+    // ========================================================
+
+    return {
+      statusCode: 200,
+      body: "ok"
+    };
+
+  } catch (error) {
+
+    console.error(
+      "MAIN ERROR:",
+      error
+    );
+
+
+    return jsonResponse(
+      500,
+      {
+
+        ok: false,
+
+        error:
+          error.message,
+
+        timestamp:
+          nowISO()
+      }
+    );
+  }
+};
