@@ -1,6 +1,6 @@
 {
   "1918832223": {
-    "step": "featured",
+    "step": "tags",
     "name": "من زیبا",
     "images": [
       {
@@ -34,7 +34,7 @@
       }
     ],
     "totalStock": 5,
-    "featured": false,
+    "featured": true,
     "tags": []
   }
 }
