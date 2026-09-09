@@ -1,6 +1,6 @@
 {
   "1918832223": {
-    "step": "compare",
+    "step": "discount",
     "name": "من زیبا",
     "images": [
       {
@@ -11,7 +11,7 @@
     "category": "👕 پوشاک",
     "description": "",
     "price": 65000,
-    "compareAtPrice": 0,
+    "compareAtPrice": 70000,
     "discountType": "none",
     "discountValue": 0,
     "discountLabel": "بدون تخفیف",
