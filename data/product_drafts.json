@@ -1,6 +1,6 @@
 {
   "1918832223": {
-    "step": "variantStock",
+    "step": "featured",
     "name": "من زیبا",
     "images": [
       {
@@ -28,14 +28,13 @@
           "رنگ": "سفید"
         },
         "price": 0,
-        "stock": 0,
+        "stock": 5,
         "sku": "",
         "active": true
       }
     ],
-    "totalStock": 0,
+    "totalStock": 5,
     "featured": false,
-    "tags": [],
-    "variantIndex": 0
+    "tags": []
   }
 }
