@@ -1,8 +1,8 @@
 const API_URL = "https://hamedtest1.netlify.app/.netlify/functions/api";
 const PRODUCTS_FALLBACK = "data/products.json";
 const CATEGORIES_FALLBACK = "data/categories.json";
-/* یوزرنیم ربات بله را اینجا بگذار — مثال: https://ble.ir/MyShopBot */
-const BALE_BOT_URL = "https://ble.ir/HamedShopBot";
+/* ربات بله فروشگاه */
+const BALE_BOT_URL = "https://ble.ir/Hamedtestshop_bot";
 
 let products = [];
 let categories = [];
@@ -30,7 +30,7 @@ function loadCart() {
 }
 function saveCart() { localStorage.setItem("hs_cart", JSON.stringify(cart)); }
 function escapeHtml(s) {
-  return String(s || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+  return String(s || "").replace(/&/g,"&").replace(/</g,"<").replace(/>/g,">").replace(/"/g,""");
 }
 function normalizeProduct(p) {
   var images = Array.isArray(p.images) && p.images.length ? p.images : (p.image ? [p.image] : []);
