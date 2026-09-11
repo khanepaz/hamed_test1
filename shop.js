@@ -3,6 +3,7 @@ const PRODUCTS_FALLBACK = "data/products.json";
 const CATEGORIES_FALLBACK = "data/categories.json";
 /* ربات بله فروشگاه */
 const BALE_BOT_URL = "https://ble.ir/Hamedtestshop_bot";
+const API_TIMEOUT_MS = 4000;
 
 let products = [];
 let categories = [];
@@ -32,6 +33,14 @@ function saveCart() { localStorage.setItem("hs_cart", JSON.stringify(cart)); }
 function escapeHtml(s) {
   return String(s || "").replace(/&/g,"&").replace(/</g,"<").replace(/>/g,">").replace(/"/g,""");
 }
+
+function fetchWithTimeout(url, options, ms) {
+  var controller = new AbortController();
+  var timer = setTimeout(function () { controller.abort(); }, ms || API_TIMEOUT_MS);
+  var opts = Object.assign({}, options || {}, { signal: controller.signal });
+  return fetch(url, opts).finally(function () { clearTimeout(timer); });
+}
+
 function normalizeProduct(p) {
   var images = Array.isArray(p.images) && p.images.length ? p.images : (p.image ? [p.image] : []);
   var compareAt = Number(p.compareAtPrice != null ? p.compareAtPrice : (p.price || 0));
@@ -49,48 +58,87 @@ function normalizeProduct(p) {
   });
 }
 
+async function loadLocalProducts() {
+  try {
+    var res = await fetch(PRODUCTS_FALLBACK, { cache: "default" });
+    if (!res.ok) return false;
+    var data = await res.json();
+    var list = Array.isArray(data) ? data : (data.products || []);
+    products = list.map(normalizeProduct).filter(function (p) { return p.active !== false; });
+    return products.length > 0;
+  } catch (e) {
+    return false;
+  }
+}
+
+async function loadLocalCategories() {
+  try {
+    var res = await fetch(CATEGORIES_FALLBACK, { cache: "default" });
+    if (!res.ok) return false;
+    var data = await res.json();
+    categories = (Array.isArray(data) ? data : []).filter(function (c) { return c.active !== false; });
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+async function loadApiProducts() {
+  var res = await fetchWithTimeout(API_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "products.list" }),
+    cache: "no-store"
+  }, API_TIMEOUT_MS);
+  var data = await res.json();
+  if (data && data.ok && Array.isArray(data.result)) {
+    products = data.result.map(normalizeProduct).filter(function (p) { return p.active !== false; });
+    return true;
+  }
+  return false;
+}
+
+async function loadApiCategories() {
+  var res = await fetchWithTimeout(API_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "categories.list" }),
+    cache: "no-store"
+  }, API_TIMEOUT_MS);
+  var data = await res.json();
+  if (data && data.ok && Array.isArray(data.result)) {
+    categories = data.result.filter(function (c) { return c.active !== false; });
+    return true;
+  }
+  return false;
+}
+
 async function loadData() {
   var grid = document.getElementById("productsGrid");
   grid.innerHTML = '<div class="state"><div class="spinner"></div><div>در حال بارگذاری...</div></div>';
-  try {
-    var res = await fetch(API_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "products.list" }),
-      cache: "no-store"
-    });
-    var data = await res.json();
-    if (data && data.ok && Array.isArray(data.result)) {
-      products = data.result.map(normalizeProduct).filter(function (p) { return p.active !== false; });
-    } else throw new Error("bad api");
-  } catch (e) {
-    try {
-      var res2 = await fetch(PRODUCTS_FALLBACK, { cache: "no-store" });
-      var data2 = await res2.json();
-      var list = Array.isArray(data2) ? data2 : (data2.products || []);
-      products = list.map(normalizeProduct).filter(function (p) { return p.active !== false; });
-    } catch (e2) { products = []; }
+
+  await Promise.all([loadLocalProducts(), loadLocalCategories()]);
+  if (products.length) {
+    renderCategories();
+    renderProducts();
+    updateCartUI();
   }
+
   try {
-    var cres = await fetch(API_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "categories.list" }),
-      cache: "no-store"
-    });
-    var cdata = await cres.json();
-    if (cdata && cdata.ok && Array.isArray(cdata.result)) {
-      categories = cdata.result.filter(function (c) { return c.active !== false; });
-    } else throw new Error("bad cat");
+    var okP = await loadApiProducts();
+    var okC = await loadApiCategories();
+    if (okP || okC) {
+      renderCategories();
+      renderProducts();
+      updateCartUI();
+    }
   } catch (e) {
-    try {
-      var cres2 = await fetch(CATEGORIES_FALLBACK, { cache: "no-store" });
-      var cdata2 = await cres2.json();
-      categories = (Array.isArray(cdata2) ? cdata2 : []).filter(function (c) { return c.active !== false; });
-    } catch (e2) { categories = []; }
+    console.warn("API slow/unavailable, using local data", e);
   }
-  renderCategories();
-  renderProducts();
+
+  if (!products.length) {
+    grid.innerHTML = '<div class="state"><div style="font-size:28px;margin-bottom:8px">📭</div><div>محصولی برای نمایش نیست</div></div>';
+  }
   updateCartUI();
 }
 
@@ -145,9 +193,12 @@ function renderProducts() {
   grid.innerHTML = list.map(function (p) {
     var out = p.totalStock <= 0;
     var disc = p.discountPercent > 0 && p.compareAtPrice > p.finalPrice;
+    var img = p.image || "";
     return '<article class="card" data-id="' + p.id + '">' +
       '<div class="card-img">' +
-        (p.image ? '<img src="' + p.image + '" alt="' + escapeHtml(p.name) + '" loading="lazy" />' : "") +
+        (img
+          ? '<img src="' + img + '" alt="' + escapeHtml(p.name) + '" loading="lazy" decoding="async" width="400" height="400" />'
+          : "") +
         (disc ? '<span class="card-disc">' + p.discountPercent + "٪</span>" : "") +
       "</div>" +
       '<div class="card-body">' +
@@ -216,7 +267,7 @@ function renderProductModal() {
   }).join("");
   document.getElementById("productBox").innerHTML =
     '<div class="modal-layout"><div class="modal-img">' +
-      (p.image ? '<img src="' + p.image + '" alt="" />' : "") +
+      (p.image ? '<img src="' + p.image + '" alt="" loading="eager" decoding="async" />' : "") +
       '<button class="modal-close" id="productClose">✕</button></div>' +
       '<div class="modal-info">' +
         '<div class="modal-cat">' + escapeHtml(p.category || "") + "</div>" +
@@ -301,7 +352,7 @@ function updateCartUI() {
   }
   document.getElementById("checkoutBtn").disabled = false;
   box.innerHTML = cart.map(function (item, idx) {
-    return '<div class="c-item"><img src="' + (item.image || "") + '" alt="" />' +
+    return '<div class="c-item"><img src="' + (item.image || "") + '" alt="" loading="lazy" />' +
       "<div><div class=\"c-title\">" + escapeHtml(item.name) + "</div>" +
       (item.variantName ? '<div class="c-var">' + escapeHtml(item.variantName) + "</div>" : "") +
       '<div class="c-price">' + money(item.unitPrice) + "</div></div>" +
@@ -384,11 +435,11 @@ async function submitOrder(e) {
     })
   };
   try {
-    var res = await fetch(API_URL, {
+    var res = await fetchWithTimeout(API_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload)
-    });
+    }, 15000);
     var data = await res.json();
     if (!res.ok || !data.ok) throw new Error(data.error || data.message || "ثبت سفارش ناموفق بود");
     cart = [];
@@ -397,7 +448,7 @@ async function submitOrder(e) {
     closeCheckout();
     document.getElementById("checkoutForm").reset();
     showSuccess(data.result);
-    await loadData();
+    loadData();
   } catch (err) {
     console.error(err);
     toast(err.message || "خطا در ثبت سفارش", "err");
