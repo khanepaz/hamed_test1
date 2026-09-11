@@ -22,6 +22,14 @@ async function getOrdersFile() {
   return readJsonFile("data/orders.json", []);
 }
 
+async function getOrderById(orderId) {
+  if (!orderId) return null;
+  const file = await getOrdersFile();
+  return (
+    file.data.find((o) => String(o.id) === String(orderId)) || null
+  );
+}
+
 async function createOrder(body) {
   const productsFile = await getProductsFile();
   const products = productsFile.data.map(normalizeProduct);
@@ -43,6 +51,7 @@ async function createOrder(body) {
     const quantity = Math.max(1, parseInt(item.quantity || 1, 10));
     let variant = null;
     let unitPrice = product.finalPrice;
+    let variantName = "";
 
     if (item.variantId) {
       variant = product.variants.find((v) => v.id === item.variantId);
@@ -51,6 +60,7 @@ async function createOrder(body) {
         throw new Error("Insufficient variant stock");
       }
       unitPrice = variant.price || unitPrice;
+      variantName = variant.name || "";
     } else {
       if (product.totalStock < quantity) {
         throw new Error("Insufficient stock");
@@ -60,17 +70,23 @@ async function createOrder(body) {
     const total = unitPrice * quantity;
     subtotal += total;
 
+    const image =
+      (Array.isArray(product.images) && product.images[0]) ||
+      product.image ||
+      null;
+
     orderItems.push({
       productId: product.id,
       variantId: variant ? variant.id : null,
       name: product.name,
+      variantName,
+      image,
       quantity,
       unitPrice,
       total
     });
   }
 
-  // Decrease stock
   for (const item of orderItems) {
     const product = products.find((p) => p.id === item.productId);
 
@@ -97,7 +113,6 @@ async function createOrder(body) {
         ? 0
         : safeNumber(settingsFile.data.shippingCost);
 
-  // Optional discount code
   let discount = 0;
   let discountCode = null;
 
@@ -129,8 +144,10 @@ async function createOrder(body) {
     shipping: shippingCost,
     total: Math.max(0, subtotal - discount + shippingCost),
     status: "pending",
+    paymentStatus: "unpaid",
     customer: body.customer || {},
     note: safeText(body.note),
+    baleChatId: body.baleChatId || null,
     createdAt: nowISO(),
     updatedAt: nowISO()
   };
@@ -138,7 +155,6 @@ async function createOrder(body) {
   const ordersFile = await getOrdersFile();
   ordersFile.data.push(order);
 
-  // Save stock first, then order
   await saveProductsFile(
     products,
     productsFile.sha,
@@ -156,9 +172,6 @@ async function createOrder(body) {
   return order;
 }
 
-/**
- * Update order status. Restores stock on cancel/return.
- */
 async function updateOrderStatus(orderId, newStatus) {
   if (!ORDER_STATUSES.includes(newStatus)) {
     throw new Error(`Invalid status: ${newStatus}`);
@@ -172,7 +185,6 @@ async function updateOrderStatus(orderId, newStatus) {
   const order = ordersFile.data[index];
   const prevStatus = order.status;
 
-  // Restore stock when moving to cancelled / returned
   const shouldRestore =
     ["cancelled", "returned"].includes(newStatus) &&
     !["cancelled", "returned"].includes(prevStatus);
@@ -216,10 +228,79 @@ async function updateOrderStatus(orderId, newStatus) {
   return order;
 }
 
+async function linkOrderToChat(orderId, chatId) {
+  const ordersFile = await getOrdersFile();
+  const index = ordersFile.data.findIndex(
+    (o) => String(o.id) === String(orderId)
+  );
+  if (index === -1) throw new Error("Order not found");
+
+  const order = ordersFile.data[index];
+  if (String(order.baleChatId) === String(chatId)) {
+    return order;
+  }
+
+  order.baleChatId = chatId;
+  order.customer = order.customer || {};
+  order.customer.baleChatId = chatId;
+  order.updatedAt = nowISO();
+  ordersFile.data[index] = order;
+
+  await writeJsonFile(
+    "data/orders.json",
+    ordersFile.data,
+    `Link order ${orderId} to Bale chat`,
+    ordersFile.sha
+  );
+
+  return order;
+}
+
+async function markOrderPaid(orderId, paymentMeta = {}) {
+  const ordersFile = await getOrdersFile();
+  const index = ordersFile.data.findIndex(
+    (o) => String(o.id) === String(orderId)
+  );
+  if (index === -1) throw new Error("Order not found");
+
+  const order = ordersFile.data[index];
+  order.paymentStatus = "paid";
+  order.paidAt = paymentMeta.paidAt || nowISO();
+  order.payment = {
+    ...(order.payment || {}),
+    ...paymentMeta
+  };
+
+  if (paymentMeta.chatId) {
+    order.baleChatId = paymentMeta.chatId;
+    order.customer = order.customer || {};
+    order.customer.baleChatId = paymentMeta.chatId;
+  }
+
+  if (order.status === "pending" || order.status === "awaiting_payment") {
+    order.status = "confirmed";
+  }
+
+  order.updatedAt = nowISO();
+  ordersFile.data[index] = order;
+
+  await writeJsonFile(
+    "data/orders.json",
+    ordersFile.data,
+    `Mark order ${orderId} paid`,
+    ordersFile.sha
+  );
+
+  return order;
+}
+
 module.exports = {
   getOrdersFile,
+  getOrderById,
   createOrder,
   updateOrderStatus,
+  linkOrderToChat,
+  markOrderPaid,
   ORDER_STATUSES,
   ORDER_STATUS_LABELS
 };
