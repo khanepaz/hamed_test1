@@ -1,11 +1,7 @@
 // ============================================================
 // HamedShop Customer Bot — Netlify Function
-// Webhook endpoint for @Hamedtestshop_bot
-// Set webhook to:
-//   https://<your-site>/.netlify/functions/customer-bot
-// Env:
-//   BALE_CUSTOMER_BOT_TOKEN  (or BALE_BOT_TOKEN fallback)
-//   BALE_PROVIDER_TOKEN      (optional, for invoices)
+// Webhook: https://<site>/.netlify/functions/customer-bot
+// Env: BALE_CUSTOMER_BOT_TOKEN, BALE_PROVIDER_TOKEN
 // ============================================================
 
 const { jsonResponse, parseJsonBody } = require("./lib/utils");
@@ -25,7 +21,8 @@ exports.handler = async function (event) {
       return jsonResponse(200, {
         ok: true,
         service: "HamedShop Customer Bot",
-        bot: "@Hamedtestshop_bot"
+        bot: "@Hamedtestshop_bot",
+        hint: "Set webhook to this URL. Requires BALE_CUSTOMER_BOT_TOKEN."
       });
     }
 
@@ -35,26 +32,38 @@ exports.handler = async function (event) {
 
     const body = parseJsonBody(event);
 
-    // Pre-checkout (must answer quickly)
     if (body.pre_checkout_query) {
-      await handlePreCheckout(body.pre_checkout_query);
+      try {
+        await handlePreCheckout(body.pre_checkout_query);
+      } catch (e) {
+        console.error("pre_checkout:", e);
+      }
       return jsonResponse(200, { ok: true });
     }
 
     if (body.callback_query) {
-      await handleCustomerCallback(body.callback_query);
+      try {
+        await handleCustomerCallback(body.callback_query);
+      } catch (e) {
+        console.error("callback:", e);
+      }
       return jsonResponse(200, { ok: true });
     }
 
     if (body.message) {
-      await handleCustomerMessage(body.message);
+      try {
+        await handleCustomerMessage(body.message);
+      } catch (e) {
+        console.error("message:", e);
+      }
       return jsonResponse(200, { ok: true });
     }
 
     return jsonResponse(200, { ok: true, ignored: true });
   } catch (error) {
     console.error("Customer bot ERROR:", error);
-    return jsonResponse(500, {
+    // Always 200 so Bale does not drop the webhook
+    return jsonResponse(200, {
       ok: false,
       error: error.message || String(error)
     });
