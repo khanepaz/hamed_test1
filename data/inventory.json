@@ -4,7 +4,7 @@
     "productName": "خودم در آینده",
     "stock": 0,
     "active": true,
-    "updatedAt": "2026-09-12T08:21:52.460Z",
+    "updatedAt": "2026-09-12T08:23:13.032Z",
     "variants": []
   },
   {
@@ -12,7 +12,7 @@
     "productName": "خودم تو جلسه",
     "stock": 0,
     "active": true,
-    "updatedAt": "2026-09-12T08:21:52.460Z",
+    "updatedAt": "2026-09-12T08:23:13.032Z",
     "variants": []
   },
   {
@@ -20,7 +20,7 @@
     "productName": "خودم آبی",
     "stock": 0,
     "active": true,
-    "updatedAt": "2026-09-12T08:21:52.460Z",
+    "updatedAt": "2026-09-12T08:23:13.032Z",
     "variants": []
   },
   {
@@ -28,7 +28,7 @@
     "productName": "من",
     "stock": 0,
     "active": true,
-    "updatedAt": "2026-09-12T08:21:52.460Z",
+    "updatedAt": "2026-09-12T08:23:13.032Z",
     "variants": []
   },
   {
@@ -36,7 +36,7 @@
     "productName": "من زیبا",
     "stock": 5,
     "active": true,
-    "updatedAt": "2026-09-12T08:21:52.460Z",
+    "updatedAt": "2026-09-12T08:23:13.032Z",
     "variants": [
       {
         "variantId": "V_mtttqplb_qo1l0n",
@@ -48,9 +48,9 @@
   {
     "productId": "P26090910211256",
     "productName": "زیبا",
-    "stock": 5,
+    "stock": 4,
     "active": true,
-    "updatedAt": "2026-09-12T08:21:52.460Z",
+    "updatedAt": "2026-09-12T08:23:13.032Z",
     "variants": []
   }
 ]
