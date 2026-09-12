@@ -355,14 +355,16 @@ function updateCartUI() {
   }
   document.getElementById("checkoutBtn").disabled = false;
   box.innerHTML = cart.map(function (item, idx) {
-    return '<div class="c-item"><img src="' + (item.image || "") + '" alt="" loading="lazy" />' +
-      '<div><div class="c-title">' + escapeHtml(item.name) + "</div>" +
-      (item.variantName ? '<div class="c-var">' + escapeHtml(item.variantName) + "</div>" : "") +
-      '<div class="c-price">' + money(item.unitPrice) + "</div></div>" +
-      '<div class="c-ctrl"><div class="c-qty">' +
-        '<button data-dec="' + idx + '">−</button><span>' + item.quantity + "</span>" +
-        '<button data-inc="' + idx + '">+</button></div>' +
-        '<button class="c-remove" data-rm="' + idx + '">حذف</button></div></div>';
+    return [
+      '<div class="c-item"><img src="' + (item.image || '') + '" alt="" loading="lazy" />',
+      '<div><div class="c-title">' + escapeHtml(item.name) + '</div>',
+      item.variantName ? ('<div class="c-var">' + escapeHtml(item.variantName) + '</div>') : '',
+      '<div class="c-price">' + money(item.unitPrice) + '</div></div>',
+      '<div class="c-ctrl"><div class="c-qty">',
+      '<button data-dec="' + idx + '">-</button><span>' + item.quantity + '</span>',
+      '<button data-inc="' + idx + '">+</button></div>',
+      '<button class="c-remove" data-rm="' + idx + '">حذف</button></div></div>'
+    ].join('');
   }).join("");
   box.querySelectorAll("[data-inc]").forEach(function (b) {
     b.onclick = function () { cart[+b.dataset.inc].quantity++; saveCart(); updateCartUI(); };
