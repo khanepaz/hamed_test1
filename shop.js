@@ -29,6 +29,19 @@ function loadCart() {
   try { return JSON.parse(localStorage.getItem("hs_cart") || "[]"); } catch (e) { return []; }
 }
 function saveCart() { localStorage.setItem("hs_cart", JSON.stringify(cart)); }
+function loadCustomer() {
+  try { return JSON.parse(localStorage.getItem("hs_customer") || "{}"); } catch (e) { return {}; }
+}
+function saveCustomer(data) {
+  localStorage.setItem("hs_customer", JSON.stringify(data || {}));
+}
+function fillCustomerForm() {
+  var c = loadCustomer();
+  if (c.name) document.getElementById("customerName").value = c.name;
+  if (c.phone) document.getElementById("customerPhone").value = c.phone;
+  if (c.address) document.getElementById("customerAddress").value = c.address;
+  if (c.note) document.getElementById("customerNote").value = c.note;
+}
 function escapeHtml(s) {
   return String(s == null ? "" : s)
     .replace(/&/g, "&" + "amp;")
@@ -395,6 +408,7 @@ function openCheckout() {
   var count = cart.reduce(function (s, i) { return s + i.quantity; }, 0);
   document.getElementById("checkoutItemsCount").textContent = count.toLocaleString("fa-IR");
   document.getElementById("checkoutTotal").textContent = money(total);
+  fillCustomerForm();
   document.getElementById("checkoutModal").classList.add("open");
   closeCart();
 }
@@ -447,11 +461,14 @@ async function submitOrder(e) {
     }, 15000);
     var data = await res.json();
     if (!res.ok || !data.ok) throw new Error(data.error || data.message || "ثبت سفارش ناموفق بود");
+    saveCustomer({ name: name, phone: phone, address: address, note: note });
+    try { localStorage.setItem("hs_last_order", (data.result && data.result.id) || ""); } catch (e) {}
     cart = [];
     saveCart();
     updateCartUI();
     closeCheckout();
     document.getElementById("checkoutForm").reset();
+    fillCustomerForm();
     showSuccess(data.result);
     loadData();
   } catch (err) {
@@ -496,4 +513,17 @@ document.addEventListener("keydown", function (e) {
     document.getElementById("successModal").classList.remove("open");
   }
 });
+["customerName", "customerPhone", "customerAddress", "customerNote"].forEach(function (id) {
+  var el = document.getElementById(id);
+  if (!el) return;
+  el.addEventListener("change", function () {
+    saveCustomer({
+      name: document.getElementById("customerName").value.trim(),
+      phone: document.getElementById("customerPhone").value.trim(),
+      address: document.getElementById("customerAddress").value.trim(),
+      note: document.getElementById("customerNote").value.trim()
+    });
+  });
+});
+fillCustomerForm();
 loadData();
