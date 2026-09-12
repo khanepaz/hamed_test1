@@ -1,7 +1,6 @@
 const API_URL = "https://hamedtest1.netlify.app/.netlify/functions/api";
 const PRODUCTS_FALLBACK = "data/products.json";
 const CATEGORIES_FALLBACK = "data/categories.json";
-/* ربات بله فروشگاه */
 const BALE_BOT_URL = "https://ble.ir/Hamedtestshop_bot";
 const API_TIMEOUT_MS = 4000;
 
@@ -20,7 +19,7 @@ function money(n) {
   return Math.round(Number(n) || 0).toLocaleString("fa-IR") + " تومان";
 }
 function toast(msg, type) {
-  const el = document.getElementById("toast");
+  var el = document.getElementById("toast");
   el.textContent = msg;
   el.className = "toast show " + (type || "");
   clearTimeout(toast._t);
@@ -31,7 +30,11 @@ function loadCart() {
 }
 function saveCart() { localStorage.setItem("hs_cart", JSON.stringify(cart)); }
 function escapeHtml(s) {
-  return String(s || "").replace(/&/g,"&").replace(/</g,"<").replace(/>/g,">").replace(/"/g,""");
+  return String(s == null ? "" : s)
+    .replace(/&/g, "&" + "amp;")
+    .replace(/</g, "&" + "lt;")
+    .replace(/>/g, "&" + "gt;")
+    .replace(/"/g, "&" + "quot;");
 }
 
 function fetchWithTimeout(url, options, ms) {
@@ -353,11 +356,11 @@ function updateCartUI() {
   document.getElementById("checkoutBtn").disabled = false;
   box.innerHTML = cart.map(function (item, idx) {
     return '<div class="c-item"><img src="' + (item.image || "") + '" alt="" loading="lazy" />' +
-      "<div><div class=\"c-title\">" + escapeHtml(item.name) + "</div>" +
+      '<div><div class="c-title">' + escapeHtml(item.name) + "</div>' +
       (item.variantName ? '<div class="c-var">' + escapeHtml(item.variantName) + "</div>" : "") +
-      '<div class="c-price">' + money(item.unitPrice) + "</div></div>" +
+      '<div class="c-price">' + money(item.unitPrice) + "</div></div>' +
       '<div class="c-ctrl"><div class="c-qty">' +
-        '<button data-dec="' + idx + '">−</button><span>' + item.quantity + '</span>' +
+        '<button data-dec="' + idx + '">−</button><span>' + item.quantity + "</span>' +
         '<button data-inc="' + idx + '">+</button></div>' +
         '<button class="c-remove" data-rm="' + idx + '">حذف</button></div></div>';
   }).join("");
