@@ -54,12 +54,13 @@
     "customer": {
       "name": "Hh",
       "phone": "0919",
-      "address": "W"
+      "address": "W",
+      "baleChatId": 1918832223
     },
     "note": "",
-    "baleChatId": null,
+    "baleChatId": 1918832223,
     "createdAt": "2026-09-12T08:23:12.265Z",
-    "updatedAt": "2026-09-12T08:23:12.265Z"
+    "updatedAt": "2026-09-12T13:07:15.939Z"
   },
   {
     "id": "ORD_mtycze33_j7hn9f",
