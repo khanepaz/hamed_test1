@@ -23,8 +23,11 @@
     "active": true,
     "featured": false,
     "tags": [],
-    "updatedAt": "2026-09-09T10:21:16.634Z",
-    "badges": []
+    "updatedAt": "2026-09-12T08:21:51.701Z",
+    "badges": [],
+    "discountType": "none",
+    "discountValue": 0,
+    "discountLabel": "بدون تخفیف"
   },
   {
     "id": "P26090805265871",
@@ -50,8 +53,11 @@
     "active": true,
     "featured": false,
     "tags": [],
-    "updatedAt": "2026-09-09T10:21:16.634Z",
-    "badges": []
+    "updatedAt": "2026-09-12T08:21:51.701Z",
+    "badges": [],
+    "discountType": "none",
+    "discountValue": 0,
+    "discountLabel": "بدون تخفیف"
   },
   {
     "id": "P26090807525753",
@@ -77,8 +83,11 @@
     "active": true,
     "featured": false,
     "tags": [],
-    "updatedAt": "2026-09-09T10:21:16.634Z",
-    "badges": []
+    "updatedAt": "2026-09-12T08:21:51.701Z",
+    "badges": [],
+    "discountType": "none",
+    "discountValue": 0,
+    "discountLabel": "بدون تخفیف"
   },
   {
     "id": "P26090904564400",
@@ -104,8 +113,11 @@
     "featured": false,
     "tags": [],
     "createdAt": "2026-09-09T04:56:46.037Z",
-    "updatedAt": "2026-09-09T10:21:16.634Z",
-    "badges": []
+    "updatedAt": "2026-09-12T08:21:51.701Z",
+    "badges": [],
+    "discountType": "none",
+    "discountValue": 0,
+    "discountLabel": "بدون تخفیف"
   },
   {
     "id": "P26090908165843",
@@ -113,7 +125,7 @@
     "description": "",
     "categoryId": "clothing",
     "category": "👕 پوشاک",
-    "price": 65100,
+    "price": 70000,
     "compareAtPrice": 70000,
     "attributes": {
       "رنگ": [
@@ -144,13 +156,16 @@
       "images/P26090908165843.jpg"
     ],
     "image": "images/P26090908165843.jpg",
-    "discountPercent": 7,
-    "discountAmount": 4900,
-    "finalPrice": 65100,
+    "discountPercent": 0,
+    "discountAmount": 0,
+    "finalPrice": 70000,
     "currency": "IRR",
     "createdAt": "2026-09-09T08:16:58.029Z",
-    "updatedAt": "2026-09-09T10:21:16.634Z",
-    "badges": []
+    "updatedAt": "2026-09-12T08:21:51.701Z",
+    "badges": [],
+    "discountType": "none",
+    "discountValue": 0,
+    "discountLabel": "بدون تخفیف"
   },
   {
     "id": "P26090910211256",
@@ -162,8 +177,8 @@
     "compareAtPrice": 100000,
     "attributes": {},
     "variants": [],
-    "stock": 5,
-    "totalStock": 5,
+    "stock": 4,
+    "totalStock": 4,
     "featured": true,
     "tags": [],
     "active": true,
@@ -177,6 +192,9 @@
     "currency": "IRR",
     "badges": [],
     "createdAt": "2026-09-09T10:21:12.019Z",
-    "updatedAt": "2026-09-09T10:21:16.634Z"
+    "updatedAt": "2026-09-12T08:21:51.701Z",
+    "discountType": "none",
+    "discountValue": 0,
+    "discountLabel": "بدون تخفیف"
   }
 ]
